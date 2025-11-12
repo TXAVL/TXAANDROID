@@ -1,51 +1,90 @@
 #!/usr/bin/env bash
 # ============================================
-# TXA Android Auto Build & Push Script (v2)
-# Auto re-authenticate GitHub if push fails
+# TXA Android Auto Build & Push Script (v3)
+# Supports debug + release, auto auth GitHub
 # ============================================
 
 set -e
 
 # --- Config ---
+export TXA_KEY_PASS="your_password_here"
 RELEASE_DIR="releases"
-APK_SRC="app/build/outputs/apk/debug/app-debug.apk"
-APK_DEST_NAME="TXA_ANDROID_$(date +%Y%m%d_%H%M%S)-debug.apk"
+DEBUG_APK_SRC="app/build/outputs/apk/debug/app-debug.apk"
+RELEASE_APK_SRC="app/build/outputs/apk/release/app-release.apk"
+KEYSTORE="$(pwd)/txa-release-key.keystore"
+ALIAS="txa_release"
+STOREPASS=""
+KEYPASS=""
 GIT_REPO="https://github.com/TXAVL/TXAANDROID.git"
 
-echo "🔧 Building TXA Android APK..."
-./gradlew assembleDebug
+# --- Parse arguments ---
+MODE="debug"
+for arg in "$@"; do
+  case $arg in
+    --release)
+      MODE="release"
+      shift
+      ;;
+  esac
+done
 
+# --- Build ---
+if [ "$MODE" = "release" ]; then
+  echo "🔧 Building TXA Android RELEASE APK..."
+  if [ -z "$STOREPASS" ]; then
+    read -s -p "🔑 Enter keystore password: " STOREPASS; echo ""
+    read -s -p "🔑 Enter key password (if same, press Enter): " KEYPASS; echo ""
+    [ -z "$KEYPASS" ] && KEYPASS="$STOREPASS"
+  fi
+  ./gradlew assembleRelease -Pandroid.injected.signing.store.file="$KEYSTORE" \
+                            -Pandroid.injected.signing.store.password="$STOREPASS" \
+                            -Pandroid.injected.signing.key.alias="$ALIAS" \
+                            -Pandroid.injected.signing.key.password="$KEYPASS"
+else
+  echo "🔧 Building TXA Android DEBUG APK..."
+  ./gradlew assembleDebug
+fi
+
+# --- Select built file ---
+if [ "$MODE" = "release" ]; then
+  APK_SRC="$RELEASE_APK_SRC"
+else
+  APK_SRC="$DEBUG_APK_SRC"
+fi
+
+# --- Check APK existence ---
 if [ ! -f "$APK_SRC" ]; then
   echo "❌ APK not found: $APK_SRC"
   exit 1
 fi
 
+# --- Copy to releases ---
 mkdir -p "$RELEASE_DIR"
+APK_DEST_NAME="TXA_ANDROID_$(date +%Y%m%d_%H%M%S)-$MODE.apk"
 cp "$APK_SRC" "$RELEASE_DIR/$APK_DEST_NAME"
 
-echo "📦 Committing APK to Git..."
+# --- Git commit ---
+echo "📦 Committing $MODE APK to Git..."
 git add -f "$RELEASE_DIR/$APK_DEST_NAME"
 git commit -m "Auto-build: Add $APK_DEST_NAME" || true
 
+# --- Git push ---
 echo "☁️ Pushing to GitHub..."
 if ! git push origin main; then
-  echo "⚠️ Push failed. Trying to re-authorize..."
+  echo "⚠️ Push failed. Attempting re-authorization..."
   read -p "👉 Enter your GitHub username: " GH_USER
-  read -s -p "🔑 Enter your GitHub personal access token: " GH_TOKEN
-  echo ""
-  
+  read -s -p "🔑 Enter your GitHub personal access token: " GH_TOKEN; echo ""
   NEW_URL="https://${GH_USER}:${GH_TOKEN}@github.com/TXAVL/TXAANDROID.git"
   git remote set-url origin "$NEW_URL"
-
   echo "🔁 Retrying push..."
   if git push origin main; then
-    echo "✅ Push successful after re-authentication."
+    echo "✅ Push successful after re-auth."
   else
-    echo "❌ Push still failed. Please check your token or network."
+    echo "❌ Push failed again. Check token or network."
     exit 1
   fi
 else
   echo "✅ Push successful."
 fi
 
-echo "🎉 Done! APK uploaded to: releases/$APK_DEST_NAME"
+echo "🎉 Done! APK uploaded: releases/$APK_DEST_NAME"
