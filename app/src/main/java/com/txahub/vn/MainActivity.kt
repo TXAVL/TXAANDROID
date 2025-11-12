@@ -3,6 +3,7 @@ package com.txahub.vn
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -18,7 +19,6 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private val WEB_URL = "https://txahub.click"
-    private val USER_AGENT_SUFFIX = " TXAAPP_>>>>>>>"
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,9 +61,11 @@ class MainActivity : AppCompatActivity() {
         webSettings.builtInZoomControls = true
         webSettings.displayZoomControls = false
 
-        // User Agent - QUAN TRỌNG: Thêm chuỗi TXAAPP_>>>>>>> để web nhận diện
+        // User Agent - QUAN TRỌNG: Thêm chuỗi TXAAPP_(tên thiết bị + hệ điều hành) để web nhận diện
         val originalUserAgent = webSettings.userAgentString
-        val customUserAgent = "$originalUserAgent$USER_AGENT_SUFFIX"
+        val deviceName = getDeviceName()
+        val osVersion = "Android_${Build.VERSION.RELEASE}"
+        val customUserAgent = "$originalUserAgent TXAAPP_${deviceName}_${osVersion}"
         webSettings.userAgentString = customUserAgent
 
         // Dark mode support (nếu có)
@@ -267,6 +269,27 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         webView.destroy()
         super.onDestroy()
+    }
+
+    /**
+     * Lấy tên thiết bị từ Build.MODEL hoặc Build.DEVICE
+     * Loại bỏ các ký tự đặc biệt để tạo user agent hợp lệ
+     */
+    private fun getDeviceName(): String {
+        val model = Build.MODEL ?: Build.DEVICE ?: "Unknown"
+        // Loại bỏ khoảng trắng và ký tự đặc biệt, thay bằng dấu gạch dưới
+        return model
+            .replace(" ", "_")
+            .replace("-", "_")
+            .replace("/", "_")
+            .replace("\\", "_")
+            .replace("(", "")
+            .replace(")", "")
+            .replace("[", "")
+            .replace("]", "")
+            .replace("{", "")
+            .replace("}", "")
+            .trim()
     }
 }
 

@@ -6,14 +6,14 @@
 3. Ở đầu trang có thông báo về các tính năng chỉ dành riêng cho app Android, chưa hỗ trợ Windows.
 
 4. Khi bấm vào các tính năng bị lock, hoặc vào dòng thông báo, sẽ hiện modal:
-   - Nếu phát hiện user agent có chuỗi TXAAPP_>>>>>>>, thì hiện modal với ảnh 1 và hướng dẫn đã có thể dùng tính năng.
+   - Nếu phát hiện user agent có chuỗi TXAAPP_ (bắt đầu bằng TXAAPP_), thì hiện modal với ảnh 1 và hướng dẫn đã có thể dùng tính năng.
    - Nếu không phát hiện user agent như trên, hiện modal với ảnh 2, hướng dẫn cài app Android, có link tải APK và link mở app (txahub://).
 
 5. Các tính năng sẵn có của trang txahub.click thuộc admin (PRO, TXAPRO...) cũng bị chặn tương tự, tooltip và logic giống như trang admin view khi thiếu giấy phép TXAPRO.
 
-6. Nhận diện Android app qua user agent: Nếu có chuỗi TXAAPP_>>>>>>> thì unlock các tính năng, nếu không thì lock như trên. Code: navigator.userAgent.includes('TXAAPP_>>>>>>>')
+6. Nhận diện Android app qua user agent: Nếu có chuỗi bắt đầu bằng TXAAPP_ (ví dụ: TXAAPP_Samsung_Galaxy_S21_Android_12) thì unlock các tính năng, nếu không thì lock như trên. Code: navigator.userAgent.includes('TXAAPP_')
 
-7. Tạo file readme_app.md mô tả chi tiết cấu trúc/thành phần/logic nhận diện/chặn-mở chức năng, và hướng dẫn cho developer Android: App Android phải set user agent WebView với chuỗi TXAAPP_>>>>>>>. Ví dụ: webView.getSettings().setUserAgentString(webView.getSettings().getUserAgentString() + " TXAAPP_>>>>>>>");
+7. Tạo file readme_app.md mô tả chi tiết cấu trúc/thành phần/logic nhận diện/chặn-mở chức năng, và hướng dẫn cho developer Android: App Android phải set user agent WebView với chuỗi TXAAPP_(tên thiết bị + hệ điều hành). Ví dụ: TXAAPP_Samsung_Galaxy_S21_Android_12. Code Android: val deviceName = Build.MODEL.replace(" ", "_"); val osVersion = "Android_${Build.VERSION.RELEASE}"; webView.getSettings().setUserAgentString(webView.getSettings().getUserAgentString() + " TXAAPP_${deviceName}_${osVersion}");
 
 8. Yêu cầu: Sử dụng vanilla JavaScript, CSS responsive mobile-first, modal có animation, tooltip có animation, code có comment tiếng Việt.
 
