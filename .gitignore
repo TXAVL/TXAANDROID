@@ -99,3 +99,15 @@ lint/outputs/
 lint/tmp/
 # lint/reports/
 
+# Python / temp / node cache
+__pycache__/
+node_modules/
+tmp/
+temp/
+
+# Ignore Markdown docs
+*.md
+
+
+
+EOF
