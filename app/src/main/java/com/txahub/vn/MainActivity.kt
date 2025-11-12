@@ -61,11 +61,10 @@ class MainActivity : AppCompatActivity() {
         webSettings.builtInZoomControls = true
         webSettings.displayZoomControls = false
 
-        // User Agent - QUAN TRỌNG: Thêm chuỗi TXAAPP_(tên thiết bị + hệ điều hành) để web nhận diện
-        val originalUserAgent = webSettings.userAgentString
+        // User Agent - QUAN TRỌNG: Tạo chuỗi mới hoàn toàn TXAAPP_(tên thiết bị + hệ điều hành) để web nhận diện
         val deviceName = getDeviceName()
         val osVersion = "Android_${Build.VERSION.RELEASE}"
-        val customUserAgent = "$originalUserAgent TXAAPP_${deviceName}_${osVersion}"
+        val customUserAgent = "TXAAPP_${deviceName}_${osVersion}"
         webSettings.userAgentString = customUserAgent
 
         // Dark mode support (nếu có)
