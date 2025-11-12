@@ -19,5 +19,9 @@
 
 9. Thông tin: Website txahub.click, deep link txahub://, ảnh 1 và 2 dùng placeholder div với text tạm thời.
 
+9.1. Xử lý Deep Link txahub:// (QUAN TRỌNG): App Android tự động chuyển đổi txahub://path thành https://txahub.click/path. Ví dụ: txahub://dashboard -> https://txahub.click/dashboard, txahub://verify-mail/abc123 -> https://txahub.click/verify-mail/abc123. Website không cần xử lý đặc biệt, chỉ cần đảm bảo routes hoạt động bình thường. Nếu website có link txahub:// trong nội dung, có thể giữ nguyên (app sẽ xử lý) hoặc chuyển đổi thành URL web khi hiển thị trên trình duyệt.
+
+9.2. Xử lý link xác minh email (QUAN TRỌNG): Khi người dùng bấm vào link xác minh email (ví dụ: https://txahub.click/verify-mail/abc123), website tự động detect và redirect đến deep link tương ứng (txahub://verify-mail/abc123) để mở app. Không hiển thị trên website, tự động mở app nếu đã cài. Detect các routes: /verify-mail/, /verify-email/, /confirm/, /verify/. Code JavaScript tự động chuyển đổi URL web thành deep link và thử mở app. Nếu app chưa cài, có thể hiển thị modal hướng dẫn cài app sau 2 giây.
+
 10. Trả về: index.html, styles.css, app.js, readme_app.md - code hoàn chỉnh sẵn sàng chạy.
 

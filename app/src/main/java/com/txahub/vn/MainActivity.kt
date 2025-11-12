@@ -1,4 +1,4 @@
-package com.txahub.app
+package com.txahub.vn
 
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -9,6 +9,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
@@ -87,8 +88,22 @@ class MainActivity : AppCompatActivity() {
                     return true
                 }
 
-                // Cho phép WebView xử lý các URL khác
-                return false
+                // Xử lý external links (Telegram, WhatsApp, etc.)
+                if (isExternalAppLink(url)) {
+                    handleExternalLink(url)
+                    return true
+                }
+
+                // Chỉ cho phép load các URL thuộc txahub.click hoặc https/http
+                if (url.startsWith("https://txahub.click") || 
+                    url.startsWith("http://txahub.click") ||
+                    url.startsWith("https://") ||
+                    url.startsWith("http://")) {
+                    return false // Cho phép WebView load
+                }
+
+                // Chặn các URL khác
+                return true
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
@@ -136,35 +151,78 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * Xử lý deep link txahub://
+     * Chuyển đổi txahub://path thành https://txahub.click/path
      */
     private fun handleDeepLink(url: String) {
         try {
             val uri = Uri.parse(url)
-            val path = uri.host ?: uri.path
-
-            when (path) {
-                "home", "main" -> {
-                    webView.loadUrl(WEB_URL)
-                }
-                "open" -> {
-                    val targetUrl = uri.getQueryParameter("url")
-                    if (targetUrl != null) {
-                        webView.loadUrl(targetUrl)
-                    } else {
-                        webView.loadUrl(WEB_URL)
-                    }
+            val path = uri.host ?: uri.path?.removePrefix("/") ?: ""
+            
+            // Xây dựng URL đích
+            val targetUrl = when {
+                path.isEmpty() || path == "home" || path == "main" -> {
+                    WEB_URL
                 }
                 else -> {
-                    // Load URL mặc định
-                    webView.loadUrl(WEB_URL)
+                    // Chuyển đổi txahub://path thành https://txahub.click/path
+                    // Ví dụ: txahub://dashboard -> https://txahub.click/dashboard
+                    // Ví dụ: txahub://verify-mail/abc123 -> https://txahub.click/verify-mail/abc123
+                    val fullPath = if (path.startsWith("/")) path else "/$path"
+                    val queryString = uri.query?.let { "?$it" } ?: ""
+                    val fragment = uri.fragment?.let { "#$it" } ?: ""
+                    "$WEB_URL$fullPath$queryString$fragment"
                 }
             }
-
-            Toast.makeText(this, "Đã mở từ deep link: $url", Toast.LENGTH_SHORT).show()
+            
+            webView.loadUrl(targetUrl)
+            Toast.makeText(this, "Đã mở: $targetUrl", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             e.printStackTrace()
             webView.loadUrl(WEB_URL)
+            Toast.makeText(this, "Lỗi khi xử lý deep link", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    /**
+     * Kiểm tra xem URL có phải là external app link không (Telegram, WhatsApp, etc.)
+     */
+    private fun isExternalAppLink(url: String): Boolean {
+        val externalSchemes = listOf(
+            "tg://", "telegram://", "whatsapp://", "viber://",
+            "fb://", "facebook://", "instagram://", "twitter://",
+            "youtube://", "mailto:", "tel:", "sms:"
+        )
+        return externalSchemes.any { url.startsWith(it, ignoreCase = true) }
+    }
+
+    /**
+     * Xử lý external links - thử mở bằng app khác hoặc báo lỗi
+     */
+    private fun handleExternalLink(url: String) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            if (intent.resolveActivity(packageManager) != null) {
+                // Có app có thể xử lý link này, mở bằng app đó
+                startActivity(intent)
+            } else {
+                // Không có app nào có thể xử lý, hiển thị thông báo lỗi
+                showExternalLinkError(url)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            showExternalLinkError(url)
+        }
+    }
+
+    /**
+     * Hiển thị dialog báo lỗi không mở được external link
+     */
+    private fun showExternalLinkError(url: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Không thể mở liên kết")
+            .setMessage("Ứng dụng không thể mở liên kết này trong app:\n\n$url\n\nVui lòng mở bằng trình duyệt hoặc app tương ứng.")
+            .setPositiveButton("Đóng", null)
+            .show()
     }
 
     /**
@@ -180,6 +238,9 @@ class MainActivity : AppCompatActivity() {
                     }
                     data.host == "txahub.click" -> {
                         webView.loadUrl(data.toString())
+                    }
+                    isExternalAppLink(data.toString()) -> {
+                        handleExternalLink(data.toString())
                     }
                 }
             }

@@ -3,24 +3,57 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+// Đọc version từ file properties
+def versionPropsFile = file('../version.properties')
+def versionProps = new Properties()
+if (versionPropsFile.exists()) {
+    versionProps.load(new FileInputStream(versionPropsFile))
+}
+
+def versionNameProp = versionProps['VERSION_NAME'] ?: '1.0_txa'
+def versionCodeProp = versionProps['VERSION_CODE'] ?: '1'
+
 android {
-    namespace 'com.txahub.app'
+    namespace 'com.txahub.vn'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.txahub.app"
+        applicationId "com.txahub.vn"
         minSdk 24
         targetSdk 34
-        versionCode 1
-        versionName "1.0.0"
+        versionCode versionCodeProp.toInteger()
+        versionName versionNameProp
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // Build variants: mobile và pc
+    flavorDimensions "device"
+    productFlavors {
+        mobile {
+            dimension "device"
+            applicationIdSuffix ""
+            versionNameSuffix ""
+            resValue "string", "app_name", "TXA Hub"
+        }
+        pc {
+            dimension "device"
+            applicationIdSuffix ".pc"
+            versionNameSuffix "_pc"
+            resValue "string", "app_name", "TXA Hub PC"
+            // PC có thể cần minSdk cao hơn cho desktop features
+            minSdk 26
+        }
     }
 
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
         }
     }
     compileOptions {
