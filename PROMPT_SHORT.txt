@@ -1,0 +1,23 @@
+
+1. Nhúng trang https://txahub.click toàn màn hình bằng iframe, nếu không được thì redirect bằng JavaScript.
+
+2. Giao diện có thêm một số tính năng độc quyền của app Android (APP ONLY FEATURES). Nếu truy cập từ trình duyệt thông thường, các tính năng này bị disabled (không thể nhấn vào, làm mờ), có tooltip ghi rõ: "Tính năng này chỉ dành cho app TXA Hub trên Android. Vui lòng mở app để sử dụng."
+
+3. Ở đầu trang có thông báo về các tính năng chỉ dành riêng cho app Android, chưa hỗ trợ Windows.
+
+4. Khi bấm vào các tính năng bị lock, hoặc vào dòng thông báo, sẽ hiện modal:
+   - Nếu phát hiện user agent có chuỗi TXAAPP_>>>>>>>, thì hiện modal với ảnh 1 và hướng dẫn đã có thể dùng tính năng.
+   - Nếu không phát hiện user agent như trên, hiện modal với ảnh 2, hướng dẫn cài app Android, có link tải APK và link mở app (txahub://).
+
+5. Các tính năng sẵn có của trang txahub.click thuộc admin (PRO, TXAPRO...) cũng bị chặn tương tự, tooltip và logic giống như trang admin view khi thiếu giấy phép TXAPRO.
+
+6. Nhận diện Android app qua user agent: Nếu có chuỗi TXAAPP_>>>>>>> thì unlock các tính năng, nếu không thì lock như trên. Code: navigator.userAgent.includes('TXAAPP_>>>>>>>')
+
+7. Tạo file readme_app.md mô tả chi tiết cấu trúc/thành phần/logic nhận diện/chặn-mở chức năng, và hướng dẫn cho developer Android: App Android phải set user agent WebView với chuỗi TXAAPP_>>>>>>>. Ví dụ: webView.getSettings().setUserAgentString(webView.getSettings().getUserAgentString() + " TXAAPP_>>>>>>>");
+
+8. Yêu cầu: Sử dụng vanilla JavaScript, CSS responsive mobile-first, modal có animation, tooltip có animation, code có comment tiếng Việt.
+
+9. Thông tin: Website txahub.click, deep link txahub://, ảnh 1 và 2 dùng placeholder div với text tạm thời.
+
+10. Trả về: index.html, styles.css, app.js, readme_app.md - code hoàn chỉnh sẵn sàng chạy.
+
