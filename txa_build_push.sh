@@ -9,8 +9,9 @@ set -e
 # --- Config ---
 export TXA_KEY_PASS="your_password_here"
 RELEASE_DIR="releases"
-DEBUG_APK_SRC="app/build/outputs/apk/debug/app-debug.apk"
-RELEASE_APK_SRC="app/build/outputs/apk/release/app-release.apk"
+# Chỉ build mobile flavor
+DEBUG_APK_SRC="app/build/outputs/apk/mobile/debug/app-mobile-debug.apk"
+RELEASE_APK_SRC="app/build/outputs/apk/mobile/release/app-mobile-release.apk"
 KEYSTORE="$(pwd)/txa-release-key.keystore"
 ALIAS="txa_release"
 STOREPASS=""
@@ -30,19 +31,19 @@ done
 
 # --- Build ---
 if [ "$MODE" = "release" ]; then
-  echo "🔧 Building TXA Android RELEASE APK..."
+  echo "🔧 Building TXA Hub Mobile RELEASE APK..."
   if [ -z "$STOREPASS" ]; then
     read -s -p "🔑 Enter keystore password: " STOREPASS; echo ""
     read -s -p "🔑 Enter key password (if same, press Enter): " KEYPASS; echo ""
     [ -z "$KEYPASS" ] && KEYPASS="$STOREPASS"
   fi
-  ./gradlew assembleRelease -Pandroid.injected.signing.store.file="$KEYSTORE" \
-                            -Pandroid.injected.signing.store.password="$STOREPASS" \
-                            -Pandroid.injected.signing.key.alias="$ALIAS" \
-                            -Pandroid.injected.signing.key.password="$KEYPASS"
+  ./gradlew assembleMobileRelease -Pandroid.injected.signing.store.file="$KEYSTORE" \
+                                   -Pandroid.injected.signing.store.password="$STOREPASS" \
+                                   -Pandroid.injected.signing.key.alias="$ALIAS" \
+                                   -Pandroid.injected.signing.key.password="$KEYPASS"
 else
-  echo "🔧 Building TXA Android DEBUG APK..."
-  ./gradlew assembleDebug
+  echo "🔧 Building TXA Hub Mobile DEBUG APK..."
+  ./gradlew assembleMobileDebug
 fi
 
 # --- Select built file ---
@@ -60,7 +61,7 @@ fi
 
 # --- Copy to releases ---
 mkdir -p "$RELEASE_DIR"
-APK_DEST_NAME="TXA_ANDROID_$(date +%Y%m%d_%H%M%S)-$MODE.apk"
+APK_DEST_NAME="TXAHUB_APP_$(date +%Y%m%d_%H%M%S).apk"
 cp "$APK_SRC" "$RELEASE_DIR/$APK_DEST_NAME"
 
 # --- Git commit ---
