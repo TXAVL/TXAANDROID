@@ -10,8 +10,8 @@ if (versionPropsFile.exists()) {
     versionProps.load(new FileInputStream(versionPropsFile))
 }
 
-def versionNameProp = versionProps['VERSION_NAME'] ?: '1.0_txa'
-def versionCodeProp = versionProps['VERSION_CODE'] ?: '1'
+def versionNameProp = versionProps['VERSION_NAME'] ?: '1.1_txa'
+def versionCodeProp = versionProps['VERSION_CODE'] ?: '11'
 
 android {
     namespace 'com.txahub.vn'

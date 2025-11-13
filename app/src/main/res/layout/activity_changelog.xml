@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@color/white">
+
+    <TextView
+        android:id="@+id/tvVersion"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Phiên bản 1.1_txa"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:padding="16dp"
+        android:textColor="@color/purple_500" />
+
+    <WebView
+        android:id="@+id/webViewChangelog"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@color/white" />
+
+    <CheckBox
+        android:id="@+id/cbHideThisVersion"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Không hiển thị changelog cho phiên bản này nữa"
+        android:padding="8dp"
+        android:textColor="@color/black" />
+
+    <Button
+        android:id="@+id/btnContinue"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tiếp tục"
+        android:textColor="@color/white"
+        android:background="@color/purple_500"
+        android:layout_marginTop="16dp"
+        android:padding="16dp" />
+
+</LinearLayout>
+

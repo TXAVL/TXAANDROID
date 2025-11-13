@@ -1,10 +1,13 @@
 package com.txahub.vn
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -12,6 +15,9 @@ import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 
@@ -74,6 +80,9 @@ class MainActivity : AppCompatActivity() {
                 WebSettingsCompat.FORCE_DARK_AUTO
             )
         }
+
+        // Thêm JavaScript Interface để web có thể gọi các quyền app
+        webView.addJavascriptInterface(AppJavaScriptInterface(), "TXAApp")
 
         // WebViewClient để xử lý navigation
         webView.webViewClient = object : WebViewClient() {
@@ -289,6 +298,148 @@ class MainActivity : AppCompatActivity() {
             .replace("{", "")
             .replace("}", "")
             .trim()
+    }
+
+    /**
+     * JavaScript Interface để web có thể gọi các quyền và tính năng của app
+     */
+    @SuppressLint("JavascriptInterface")
+    inner class AppJavaScriptInterface {
+        
+        /**
+         * Kiểm tra quyền thông báo
+         * @return "granted", "denied", hoặc "not_supported"
+         */
+        @JavascriptInterface
+        fun checkNotificationPermission(): String {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                when {
+                    ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED -> "granted"
+                    else -> "denied"
+                }
+            } else {
+                // Android < 13, kiểm tra qua NotificationManagerCompat
+                if (NotificationManagerCompat.from(this@MainActivity).areNotificationsEnabled()) {
+                    "granted"
+                } else {
+                    "denied"
+                }
+            }
+        }
+
+        /**
+         * Yêu cầu quyền thông báo
+         */
+        @JavascriptInterface
+        fun requestNotificationPermission() {
+            runOnUiThread {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    ActivityCompat.requestPermissions(
+                        this@MainActivity,
+                        arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                        1001
+                    )
+                } else {
+                    // Android < 13, mở cài đặt thông báo
+                    val intent = Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                        putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName)
+                    }
+                    startActivity(intent)
+                }
+            }
+        }
+
+        /**
+         * Kiểm tra quyền camera
+         */
+        @JavascriptInterface
+        fun checkCameraPermission(): String {
+            return when {
+                ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED -> "granted"
+                else -> "denied"
+            }
+        }
+
+        /**
+         * Yêu cầu quyền camera
+         */
+        @JavascriptInterface
+        fun requestCameraPermission() {
+            runOnUiThread {
+                ActivityCompat.requestPermissions(
+                    this@MainActivity,
+                    arrayOf(Manifest.permission.CAMERA),
+                    1002
+                )
+            }
+        }
+
+        /**
+         * Kiểm tra quyền vị trí
+         */
+        @JavascriptInterface
+        fun checkLocationPermission(): String {
+            val fineLocation = ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            val coarseLocation = ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            return when {
+                fineLocation -> "granted"
+                coarseLocation -> "granted"
+                else -> "denied"
+            }
+        }
+
+        /**
+         * Yêu cầu quyền vị trí
+         */
+        @JavascriptInterface
+        fun requestLocationPermission() {
+            runOnUiThread {
+                ActivityCompat.requestPermissions(
+                    this@MainActivity,
+                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+                    1003
+                )
+            }
+        }
+
+        /**
+         * Lấy danh sách các quyền app có
+         * @return JSON string với danh sách quyền
+         */
+        @JavascriptInterface
+        fun getAvailablePermissions(): String {
+            val permissions = mutableMapOf<String, String>()
+            permissions["notification"] = checkNotificationPermission()
+            permissions["camera"] = checkCameraPermission()
+            permissions["location"] = checkLocationPermission()
+            
+            // Chuyển đổi thành JSON string
+            val json = permissions.entries.joinToString(", ") { "\"${it.key}\":\"${it.value}\"" }
+            return "{$json}"
+        }
+
+        /**
+         * Hiển thị toast message
+         */
+        @JavascriptInterface
+        fun showToast(message: String) {
+            runOnUiThread {
+                Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        /**
+         * Lấy version app
+         */
+        @JavascriptInterface
+        fun getAppVersion(): String {
+            return try {
+                val packageInfo = packageManager.getPackageInfo(packageName, 0)
+                packageInfo.versionName ?: "1.1_txa"
+            } catch (e: Exception) {
+                "1.1_txa"
+            }
+        }
     }
 }
 

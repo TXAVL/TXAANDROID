@@ -4,6 +4,24 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    
+    <!-- Quyền thông báo -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    
+    <!-- Quyền đọc trạng thái thiết bị (để biết app đang chạy) -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    
+    <!-- Quyền truy cập camera (nếu cần) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    
+    <!-- Quyền đọc/ghi file (nếu cần) -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
+        android:maxSdkVersion="32" />
+    
+    <!-- Quyền truy cập vị trí (nếu cần) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <application
         android:allowBackup="true"
@@ -44,6 +62,13 @@
                     android:host="txahub.click" />
             </intent-filter>
         </activity>
+        
+        <!-- Changelog Activity -->
+        <activity
+            android:name=".ChangelogActivity"
+            android:exported="false"
+            android:theme="@style/Theme.TXAHub"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
         
         <!-- Main Activity -->
         <activity
