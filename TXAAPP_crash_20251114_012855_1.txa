@@ -1,0 +1,44 @@
+=== CRASH REPORT ===
+Time: 2025-11-14 01:28:55
+Thread: main
+Exception: java.lang.RuntimeException
+Message: Unable to start service com.txahub.vn.UpdateCheckService@188eaae with Intent { xflg=0x4 cmp=com.txahub.vn/.UpdateCheckService }: java.lang.SecurityException: Starting FGS with type dataSync callerApp=ProcessRecord{2ed4c18 29931:com.txahub.vn/u0a223} targetSDK=34 requires permissions: all of the permissions allOf=true [android.permission.FOREGROUND_SERVICE_DATA_SYNC] 
+Stack Trace:
+  java.lang.RuntimeException: Unable to start service com.txahub.vn.UpdateCheckService@188eaae with Intent { xflg=0x4 cmp=com.txahub.vn/.UpdateCheckService }: java.lang.SecurityException: Starting FGS with type dataSync callerApp=ProcessRecord{2ed4c18 29931:com.txahub.vn/u0a223} targetSDK=34 requires permissions: all of the permissions allOf=true [android.permission.FOREGROUND_SERVICE_DATA_SYNC] 
+  	at android.app.ActivityThread.handleServiceArgs(ActivityThread.java:6105)
+  	at android.app.ActivityThread.-$$Nest$mhandleServiceArgs(Unknown Source:0)
+  	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2974)
+  	at android.os.Handler.dispatchMessage(Handler.java:110)
+  	at android.os.Looper.loopOnce(Looper.java:273)
+  	at android.os.Looper.loop(Looper.java:363)
+  	at android.app.ActivityThread.main(ActivityThread.java:10060)
+  	at java.lang.reflect.Method.invoke(Native Method)
+  	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:632)
+  	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:975)
+  Caused by: java.lang.SecurityException: Starting FGS with type dataSync callerApp=ProcessRecord{2ed4c18 29931:com.txahub.vn/u0a223} targetSDK=34 requires permissions: all of the permissions allOf=true [android.permission.FOREGROUND_SERVICE_DATA_SYNC] 
+  	at android.os.Parcel.createExceptionOrNull(Parcel.java:3355)
+  	at android.os.Parcel.createException(Parcel.java:3339)
+  	at android.os.Parcel.readException(Parcel.java:3322)
+  	at android.os.Parcel.readException(Parcel.java:3264)
+  	at android.app.IActivityManager$Stub$Proxy.setServiceForeground(IActivityManager.java:7526)
+  	at android.app.Service.startForeground(Service.java:776)
+  	at com.txahub.vn.UpdateCheckService.createForegroundNotification(UpdateCheckService.kt:203)
+  	at com.txahub.vn.UpdateCheckService.onStartCommand(UpdateCheckService.kt:136)
+  	at android.app.ActivityThread.handleServiceArgs(ActivityThread.java:6087)
+  	... 9 more
+  Caused by: android.os.RemoteException: Remote stack trace:
+  	at com.android.server.am.ActiveServices.validateForegroundServiceType(qb/101814631 6fcc819227ffea5ef182ddf5399a6cf5f9d95952c3265a7cd3cb38963f302fcc:126)
+  	at com.android.server.am.ActiveServices.setServiceForegroundInnerLocked(qb/101814631 6fcc819227ffea5ef182ddf5399a6cf5f9d95952c3265a7cd3cb38963f302fcc:120)
+  	at com.android.server.am.ActiveServices.setServiceForegroundLocked(qb/101814631 6fcc819227ffea5ef182ddf5399a6cf5f9d95952c3265a7cd3cb38963f302fcc:51)
+  	at com.android.server.am.ActivityManagerService.setServiceForeground(qb/101814631 6fcc819227ffea5ef182ddf5399a6cf5f9d95952c3265a7cd3cb38963f302fcc:13)
+  	at android.app.IActivityManager$Stub.onTransact$setServiceForeground$(IActivityManager.java:12783)
+  
+  
+Device Info:
+  Model: SM-M336K
+  Manufacturer: samsung
+  Android Version: 16 (SDK 36)
+  App Version: 1.4.1_txa (31)
+=== END CRASH REPORT ===
+
+
