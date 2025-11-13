@@ -18,6 +18,7 @@ class UpdateCheckService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private val updateChecker: UpdateChecker by lazy { UpdateChecker(this) }
     private val notificationHelper: NotificationHelper by lazy { NotificationHelper(this) }
+    private val logWriter: LogWriter by lazy { LogWriter(this) }
     private val checkInterval: Long = 30 * 1000 // 30 giây
     private val notificationInterval: Long = 5 * 60 * 1000 // Thông báo mỗi 5 phút (giữ nguyên để không spam)
     private val prefs by lazy { getSharedPreferences("txahub_prefs", Context.MODE_PRIVATE) }
@@ -67,27 +68,40 @@ class UpdateCheckService : Service() {
     
     private val checkRunnable = object : Runnable {
         override fun run() {
+            // Log khi bắt đầu check
+            logWriter.writeUpdateCheckLog("Starting update check...", "DEBUG")
+            
             // Kiểm tra cập nhật
             updateChecker.checkUpdate { updateInfo ->
                 // Đảm bảo chạy trên main thread
                 handler.post {
                     if (updateInfo != null) {
                         // Có bản cập nhật mới
+                        val logMessage = "Update found: version=${updateInfo.versionName}, code=${updateInfo.versionCode}, forceUpdate=${updateInfo.forceUpdate}"
+                        android.util.Log.d("UpdateCheckService", logMessage)
+                        logWriter.writeUpdateCheckLog(logMessage, "INFO")
+                        
                         val currentTime = System.currentTimeMillis()
                         val shouldNotify = when {
                             // Nếu là version mới chưa từng thông báo
                             lastNotifiedVersion != updateInfo.versionName -> {
-                                android.util.Log.d("UpdateCheckService", "Should notify: New version ${updateInfo.versionName} (last: $lastNotifiedVersion)")
+                                val msg = "Should notify: New version ${updateInfo.versionName} (last: $lastNotifiedVersion)"
+                                android.util.Log.d("UpdateCheckService", msg)
+                                logWriter.writeUpdateCheckLog(msg, "INFO")
                                 true
                             }
                             // Nếu đã thông báo version này rồi, nhưng đã qua 5 phút
                             currentTime - lastNotificationTime >= notificationInterval -> {
-                                android.util.Log.d("UpdateCheckService", "Should notify: Time interval passed (${(currentTime - lastNotificationTime) / 1000}s)")
+                                val msg = "Should notify: Time interval passed (${(currentTime - lastNotificationTime) / 1000}s)"
+                                android.util.Log.d("UpdateCheckService", msg)
+                                logWriter.writeUpdateCheckLog(msg, "INFO")
                                 true
                             }
                             // Còn lại thì không thông báo
                             else -> {
-                                android.util.Log.d("UpdateCheckService", "Should NOT notify: Same version, time not passed yet")
+                                val msg = "Should NOT notify: Same version, time not passed yet"
+                                android.util.Log.d("UpdateCheckService", msg)
+                                logWriter.writeUpdateCheckLog(msg, "DEBUG")
                                 false
                             }
                         }
@@ -95,7 +109,9 @@ class UpdateCheckService : Service() {
                         if (shouldNotify) {
                             // Kiểm tra quyền thông báo trước khi hiển thị
                             val hasPermission = notificationHelper.hasNotificationPermission()
-                            android.util.Log.d("UpdateCheckService", "Has notification permission: $hasPermission")
+                            val permMsg = "Has notification permission: $hasPermission, forceUpdate: ${updateInfo.forceUpdate}"
+                            android.util.Log.d("UpdateCheckService", permMsg)
+                            logWriter.writeUpdateCheckLog(permMsg, "INFO")
                             
                             if (hasPermission) {
                                 try {
@@ -104,7 +120,9 @@ class UpdateCheckService : Service() {
                                         downloadUrl = updateInfo.downloadUrl,
                                         forceUpdate = updateInfo.forceUpdate
                                     )
-                                    android.util.Log.d("UpdateCheckService", "Notification sent for version ${updateInfo.versionName}")
+                                    val successMsg = "Notification sent successfully for version ${updateInfo.versionName} (forceUpdate=${updateInfo.forceUpdate})"
+                                    android.util.Log.d("UpdateCheckService", successMsg)
+                                    logWriter.writeUpdateCheckLog(successMsg, "INFO")
                                     
                                     lastNotifiedVersion = updateInfo.versionName
                                     lastNotificationTime = currentTime
@@ -115,15 +133,25 @@ class UpdateCheckService : Service() {
                                         .putLong("last_notification_time", currentTime)
                                         .apply()
                                 } catch (e: Exception) {
-                                    android.util.Log.e("UpdateCheckService", "Error showing notification: ${e.message}", e)
+                                    val errorMsg = "ERROR: Failed to send notification for version ${updateInfo.versionName}. Error: ${e.message}\nStack: ${e.stackTraceToString()}"
+                                    android.util.Log.e("UpdateCheckService", errorMsg, e)
+                                    logWriter.writeUpdateCheckLog(errorMsg, "ERROR")
                                 }
                             } else {
-                                android.util.Log.w("UpdateCheckService", "No notification permission, cannot show update notification")
+                                val errorMsg = "ERROR: No notification permission, cannot show update notification for version ${updateInfo.versionName}"
+                                android.util.Log.w("UpdateCheckService", errorMsg)
+                                logWriter.writeUpdateCheckLog(errorMsg, "ERROR")
                             }
+                        } else {
+                            val msg = "Skipping notification: shouldNotify=false"
+                            android.util.Log.d("UpdateCheckService", msg)
+                            logWriter.writeUpdateCheckLog(msg, "DEBUG")
                         }
                     } else {
                         // Không có update, reset thông báo để lần sau có update mới sẽ thông báo ngay
-                        android.util.Log.d("UpdateCheckService", "No update available, resetting notification state")
+                        val msg = "No update available, resetting notification state"
+                        android.util.Log.d("UpdateCheckService", msg)
+                        logWriter.writeUpdateCheckLog(msg, "DEBUG")
                         lastNotifiedVersion = ""
                         lastNotificationTime = 0
                         prefs.edit()

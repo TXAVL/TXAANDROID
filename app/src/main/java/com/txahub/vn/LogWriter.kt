@@ -17,6 +17,7 @@ class LogWriter(private val context: Context) {
         private const val LOG_FILE_PREFIX_API = "TXAAPP_api_"
         private const val LOG_FILE_PREFIX_APP = "TXAAPP_app_"
         private const val LOG_FILE_PREFIX_CRASH = "TXAAPP_crash_"
+        private const val LOG_FILE_PREFIX_UPDATE_CHECK = "TXAAPP_updatecheck_"
         private const val LOG_FILE_EXTENSION = ".txa"
         private const val MAX_LOG_FILE_SIZE = 5 * 1024 * 1024 // 5MB per file
         private const val MAX_LOG_FILES = 20 // Giữ tối đa 20 file log
@@ -188,6 +189,68 @@ class LogWriter(private val context: Context) {
             
             val logFiles = logFolder.listFiles { file ->
                 file.isFile && file.name.startsWith(LOG_FILE_PREFIX_API) && 
+                               file.name.endsWith(LOG_FILE_EXTENSION)
+            }
+            
+            logFiles?.maxByOrNull { it.lastModified() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+    
+    /**
+     * Ghi log cho UpdateCheckService (theo ngày)
+     */
+    fun writeUpdateCheckLog(message: String, level: String = "INFO") {
+        if (!hasWritePermission()) {
+            return
+        }
+        
+        try {
+            val logFolder = getLogFolder()
+            if (!logFolder.exists()) {
+                logFolder.mkdirs()
+            }
+            
+            // Tạo tên file theo format: TXAAPP_updatecheck_YYYYMMDD.txa (1 file mỗi ngày)
+            val dateFormat = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.getDefault())
+            val dateStr = dateFormat.format(java.util.Date())
+            val fileName = "${LOG_FILE_PREFIX_UPDATE_CHECK}${dateStr}${LOG_FILE_EXTENSION}"
+            val logFile = File(logFolder, fileName)
+            
+            // Kiểm tra kích thước file, nếu quá lớn thì tạo file mới
+            val actualFile = if (logFile.exists() && logFile.length() > MAX_LOG_FILE_SIZE) {
+                val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
+                File(logFolder, "${LOG_FILE_PREFIX_UPDATE_CHECK}${dateStr}_${timestamp}${LOG_FILE_EXTENSION}")
+            } else {
+                logFile
+            }
+            
+            FileWriter(actualFile, true).use { writer ->
+                writer.append("[$level] ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", java.util.Locale.getDefault()).format(java.util.Date())} $message\n")
+            }
+            
+            // Dọn dẹp file log cũ
+            cleanupOldLogFiles(logFolder)
+            
+        } catch (e: Exception) {
+            android.util.Log.e("LogWriter", "Failed to write update check log", e)
+        }
+    }
+    
+    /**
+     * Lấy file log UpdateCheck mới nhất
+     */
+    fun getLatestUpdateCheckLogFile(): File? {
+        return try {
+            val logFolder = getLogFolder()
+            if (!logFolder.exists() || !logFolder.isDirectory) {
+                return null
+            }
+            
+            val logFiles = logFolder.listFiles { file ->
+                file.isFile && file.name.startsWith(LOG_FILE_PREFIX_UPDATE_CHECK) && 
                                file.name.endsWith(LOG_FILE_EXTENSION)
             }
             

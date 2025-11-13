@@ -101,11 +101,12 @@ class SettingsActivity : AppCompatActivity() {
         // Hỏi người dùng muốn mở loại log nào
         AlertDialog.Builder(this)
             .setTitle("Chọn loại log")
-            .setItems(arrayOf("App Log", "Crash Log", "API Log")) { _, which ->
+            .setItems(arrayOf("App Log", "Crash Log", "API Log", "Update Check Log")) { _, which ->
                 when (which) {
                     0 -> showLogViewer("app")
                     1 -> showLogViewer("crash")
                     2 -> showLogViewer("api")
+                    3 -> showLogViewer("updatecheck")
                 }
             }
             .setNegativeButton("Hủy", null)
@@ -128,6 +129,7 @@ class SettingsActivity : AppCompatActivity() {
                 "app" -> logWriter.getLatestAppLogFile()
                 "crash" -> logWriter.getLatestCrashLogFile()
                 "api" -> logWriter.getLatestApiLogFile()
+                "updatecheck" -> logWriter.getLatestUpdateCheckLogFile()
                 else -> null
             }
             
@@ -136,6 +138,7 @@ class SettingsActivity : AppCompatActivity() {
                     "app" -> "ứng dụng"
                     "crash" -> "crash"
                     "api" -> "API"
+                    "updatecheck" -> "Update Check"
                     else -> ""
                 }
                 Toast.makeText(this, "Không tìm thấy file log $logTypeName", Toast.LENGTH_SHORT).show()
