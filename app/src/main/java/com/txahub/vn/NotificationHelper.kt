@@ -113,7 +113,7 @@ class NotificationHelper(private val context: Context) {
             .setContentIntent(downloadPendingIntent)
             .setDefaults(NotificationCompat.DEFAULT_ALL) // Sound, vibration, lights
             .addAction(
-                android.R.drawable.ic_menu_download,
+                android.R.drawable.ic_dialog_info,
                 "Tải ngay",
                 downloadPendingIntent
             )
