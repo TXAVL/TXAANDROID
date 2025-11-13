@@ -44,6 +44,10 @@ class NotificationHelper(private val context: Context) {
                 enableVibration(true)
                 enableLights(true)
                 setShowBadge(true)
+                // Cho phép hiển thị ngay cả khi bật "Không làm phiền" (Android 7.0+)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    setBypassDnd(true)
+                }
             }
             
             // Channel cho thông báo chạy nền
@@ -132,12 +136,14 @@ class NotificationHelper(private val context: Context) {
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
-            .setPriority(if (forceUpdate) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
+            // Luôn set priority MAX để hiển thị ngay cả khi bật "Không làm phiền"
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setAutoCancel(true)
             .setContentIntent(downloadPendingIntent)
             .setDefaults(NotificationCompat.DEFAULT_ALL) // Sound, vibration, lights
             .setCategory(NotificationCompat.CATEGORY_STATUS) // Cho phép customize trong settings
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Hiển thị trên lock screen
+            .setFullScreenIntent(downloadPendingIntent, forceUpdate) // Full screen intent cho force update
             .addAction(
                 android.R.drawable.ic_dialog_info,
                 "Tải ngay",
