@@ -51,6 +51,17 @@ class ChangelogActivity : AppCompatActivity() {
         
         tvVersion.text = "Phiên bản $versionName"
         
+        // Kiểm tra nếu changelog rỗng
+        val displayChangelog = if (changelog.isBlank() || changelog.trim().isEmpty()) {
+            """
+            <div style="text-align: center; padding: 40px 20px;">
+                <p style="font-size: 18px; color: #666; margin-bottom: 16px;">Chưa có thông tin changelog cho phiên bản này.</p>
+            </div>
+            """.trimIndent()
+        } else {
+            changelog
+        }
+        
         // Load changelog vào WebView
         val htmlContent = """
             <!DOCTYPE html>
@@ -70,7 +81,7 @@ class ChangelogActivity : AppCompatActivity() {
                 </style>
             </head>
             <body>
-                $changelog
+                $displayChangelog
             </body>
             </html>
         """.trimIndent()

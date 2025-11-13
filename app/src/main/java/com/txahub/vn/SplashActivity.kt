@@ -164,46 +164,18 @@ class SplashActivity : AppCompatActivity() {
 
     private fun proceedToNextScreen() {
         Handler(Looper.getMainLooper()).postDelayed({
-            // Kiểm tra xem có cần hiển thị changelog không
-            val currentVersion = updateChecker.getCurrentVersion()
-            val prefs = getSharedPreferences("txahub_prefs", MODE_PRIVATE)
-            val hiddenKey = "hidden_changelog_version_$currentVersion"
-            val isHidden = prefs.getBoolean(hiddenKey, false)
+            // Chuyển thẳng sang MainActivity (không tự động hiện changelog nữa)
+            val intent = Intent(this, MainActivity::class.java)
             
-            if (!isHidden) {
-                // Lấy changelog từ API cho version hiện tại
-                updateChecker.getChangelogForVersion(currentVersion) { changelog ->
-                    runOnUiThread {
-                        val intent = Intent(this, ChangelogActivity::class.java).apply {
-                            putExtra(ChangelogActivity.EXTRA_VERSION_NAME, currentVersion)
-                            putExtra(ChangelogActivity.EXTRA_CHANGELOG, changelog ?: "")
-                        }
-                        
-                        // Truyền deep link nếu có
-                        val data = this@SplashActivity.intent?.data
-                        if (data != null) {
-                            intent.data = data
-                            intent.action = Intent.ACTION_VIEW
-                        }
-                        
-                        startActivity(intent)
-                        finish()
-                    }
-                }
-            } else {
-                // Chuyển thẳng sang MainActivity
-                val intent = Intent(this, MainActivity::class.java)
-                
-                // Truyền deep link nếu có
-                val data = this.intent?.data
-                if (data != null) {
-                    intent.data = data
-                    intent.action = Intent.ACTION_VIEW
-                }
-                
-                startActivity(intent)
-                finish()
+            // Truyền deep link nếu có
+            val data = this.intent?.data
+            if (data != null) {
+                intent.data = data
+                intent.action = Intent.ACTION_VIEW
             }
+            
+            startActivity(intent)
+            finish()
         }, SPLASH_DELAY)
     }
 

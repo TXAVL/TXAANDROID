@@ -71,11 +71,33 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun setupSidebar() {
-        // Menu button
         val btnMenu = findViewById<ImageButton>(R.id.btnMenu)
+        
+        // Menu button - đổi icon khi mở/đóng drawer
         btnMenu.setOnClickListener {
-            drawerLayout.openDrawer(Gravity.START)
+            if (drawerLayout.isDrawerOpen(Gravity.START)) {
+                drawerLayout.closeDrawer(Gravity.START)
+            } else {
+                drawerLayout.openDrawer(Gravity.START)
+            }
         }
+        
+        // Lắng nghe sự kiện mở/đóng drawer để đổi icon
+        drawerLayout.addDrawerListener(object : androidx.drawerlayout.widget.DrawerLayout.DrawerListener {
+            override fun onDrawerSlide(drawerView: android.view.View, slideOffset: Float) {}
+            
+            override fun onDrawerOpened(drawerView: android.view.View) {
+                // Đổi icon thành close (X)
+                btnMenu.setImageResource(R.drawable.ic_menu_close)
+            }
+            
+            override fun onDrawerClosed(drawerView: android.view.View) {
+                // Đổi icon thành hamburger menu
+                btnMenu.setImageResource(R.drawable.ic_menu_hamburger)
+            }
+            
+            override fun onDrawerStateChanged(newState: Int) {}
+        })
         
         // Version text in header
         val tvAppVersion = findViewById<TextView>(R.id.tvAppVersion)
@@ -96,12 +118,38 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Đã chuyển đến app chính", Toast.LENGTH_SHORT).show()
         }
         
+        // Menu: Changelog
+        val menuChangelog = findViewById<LinearLayout>(R.id.menuChangelog)
+        menuChangelog.setOnClickListener {
+            openChangelog()
+            drawerLayout.closeDrawer(Gravity.START)
+        }
+        
         // Menu: Settings
         val menuVersionInfo = findViewById<LinearLayout>(R.id.menuVersionInfo)
         menuVersionInfo.setOnClickListener {
             val intent = Intent(this, SettingsActivity::class.java)
             startActivity(intent)
             drawerLayout.closeDrawer(Gravity.START)
+        }
+    }
+    
+    /**
+     * Mở ChangelogActivity với changelog của phiên bản hiện tại
+     */
+    private fun openChangelog() {
+        val updateChecker = UpdateChecker(this)
+        val currentVersion = updateChecker.getCurrentVersion()
+        
+        // Lấy changelog từ API
+        updateChecker.getChangelogForVersion(currentVersion) { changelog ->
+            runOnUiThread {
+                val intent = Intent(this, ChangelogActivity::class.java).apply {
+                    putExtra(ChangelogActivity.EXTRA_VERSION_NAME, currentVersion)
+                    putExtra(ChangelogActivity.EXTRA_CHANGELOG, changelog ?: "")
+                }
+                startActivity(intent)
+            }
         }
     }
 
