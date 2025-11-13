@@ -90,35 +90,59 @@ class UpdateChecker(private val context: Context) {
                 connection.readTimeout = 10000
                 
                 val responseCode = connection.responseCode
+                val inputStream = if (responseCode == HttpURLConnection.HTTP_OK) {
+                    connection.inputStream
+                } else {
+                    connection.errorStream
+                }
+                
+                val reader = BufferedReader(InputStreamReader(inputStream))
+                val response = StringBuilder()
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    response.append(line)
+                }
+                reader.close()
+                
+                val responseString = response.toString()
+                
                 if (responseCode == HttpURLConnection.HTTP_OK) {
-                    val reader = BufferedReader(InputStreamReader(connection.inputStream))
-                    val response = StringBuilder()
-                    var line: String?
-                    while (reader.readLine().also { line = it } != null) {
-                        response.append(line)
-                    }
-                    reader.close()
-                    
-                    // Ghi log
-                    val responseString = response.toString()
+                    // Ghi log success response
                     logWriter.writeApiLog(responseString, API_URL)
                     
-                    val json = JSONObject(responseString)
-                    val latestVersion = json.getString("version_name")
-                    
-                    // Nếu version hiện tại trùng với version mới nhất, trả về changelog
-                    if (latestVersion == versionName) {
-                        callback(json.getString("changelog"))
-                    } else {
-                        // Nếu không phải version mới nhất, có thể trả về changelog mặc định hoặc null
+                    try {
+                        val json = JSONObject(responseString)
+                        val latestVersion = json.getString("version_name")
+                        
+                        // Nếu version hiện tại trùng với version mới nhất, trả về changelog
+                        if (latestVersion == versionName) {
+                            callback(json.getString("changelog"))
+                        } else {
+                            // Nếu không phải version mới nhất, có thể trả về changelog mặc định hoặc null
+                            callback(null)
+                        }
+                    } catch (e: Exception) {
+                        // JSON parsing error
+                        logWriter.writeApiLog("JSON Parse Error: ${e.message}\nResponse: $responseString", API_URL)
                         callback(null)
                     }
                 } else {
+                    // Xử lý error response (404, 500, etc.)
+                    val errorMessage = try {
+                        val errorJson = JSONObject(responseString)
+                        errorJson.optString("message", errorJson.optString("error", "Unknown error"))
+                    } catch (e: Exception) {
+                        "HTTP $responseCode: ${responseString.take(200)}"
+                    }
+                    
+                    logWriter.writeApiLog("API Error ($responseCode): $errorMessage\nResponse: $responseString", API_URL)
                     callback(null)
                 }
+                
                 connection.disconnect()
             } catch (e: Exception) {
                 e.printStackTrace()
+                logWriter.writeApiLog("Exception in getChangelogForVersion: ${e.message}", API_URL)
                 callback(null)
             }
         }.start()
@@ -137,47 +161,79 @@ class UpdateChecker(private val context: Context) {
                 connection.readTimeout = 10000
                 
                 val responseCode = connection.responseCode
+                val inputStream = if (responseCode == HttpURLConnection.HTTP_OK) {
+                    connection.inputStream
+                } else {
+                    connection.errorStream
+                }
+                
+                val reader = BufferedReader(InputStreamReader(inputStream))
+                val response = StringBuilder()
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    response.append(line)
+                }
+                reader.close()
+                
+                val responseString = response.toString()
+                
                 if (responseCode == HttpURLConnection.HTTP_OK) {
-                    val reader = BufferedReader(InputStreamReader(connection.inputStream))
-                    val response = StringBuilder()
-                    var line: String?
-                    while (reader.readLine().also { line = it } != null) {
-                        response.append(line)
-                    }
-                    reader.close()
-                    
-                    // Ghi log phản hồi API
-                    val responseString = response.toString()
+                    // Ghi log success response
                     logWriter.writeApiLog(responseString, API_URL)
                     
-                    val json = JSONObject(responseString)
-                    val updateInfo = UpdateInfo(
-                        versionName = json.getString("version_name"),
-                        versionCode = json.getInt("version_code"),
-                        releaseDate = json.getString("release_date"),
-                        changelog = json.getString("changelog"),
-                        downloadUrl = json.getString("download_url"),
-                        forceUpdate = json.optBoolean("force_update", false)
-                    )
-                    
-                    // Kiểm tra xem có phải bản mới hơn không
-                    val currentVersion = getCurrentVersion()
-                    if (isNewerVersion(updateInfo.versionName, currentVersion) || 
-                        updateInfo.versionCode > getCurrentVersionCode()) {
-                        callback(updateInfo)
-                    } else {
-                        callback(null) // Không có bản cập nhật
+                    try {
+                        val json = JSONObject(responseString)
+                        
+                        // Validate các trường bắt buộc
+                        if (!json.has("version_name") || !json.has("version_code") || 
+                            !json.has("release_date") || !json.has("changelog") || 
+                            !json.has("download_url")) {
+                            logWriter.writeApiLog("Missing required fields in API response: $responseString", API_URL)
+                            callback(null)
+                            connection.disconnect()
+                            return@Thread
+                        }
+                        
+                        val updateInfo = UpdateInfo(
+                            versionName = json.getString("version_name"),
+                            versionCode = json.getInt("version_code"),
+                            releaseDate = json.getString("release_date"),
+                            changelog = json.getString("changelog"),
+                            downloadUrl = json.getString("download_url"),
+                            forceUpdate = json.optBoolean("force_update", false)
+                        )
+                        
+                        // Kiểm tra xem có phải bản mới hơn không
+                        val currentVersion = getCurrentVersion()
+                        if (isNewerVersion(updateInfo.versionName, currentVersion) || 
+                            updateInfo.versionCode > getCurrentVersionCode()) {
+                            callback(updateInfo)
+                        } else {
+                            callback(null) // Không có bản cập nhật
+                        }
+                    } catch (e: Exception) {
+                        // JSON parsing error hoặc missing fields
+                        logWriter.writeApiLog("JSON Parse Error: ${e.message}\nResponse: $responseString", API_URL)
+                        callback(null)
                     }
                 } else {
-                    // Ghi log lỗi
-                    logWriter.writeApiLog("Error: HTTP $responseCode", API_URL)
+                    // Xử lý error response (404, 500, etc.)
+                    val errorMessage = try {
+                        val errorJson = JSONObject(responseString)
+                        errorJson.optString("message", errorJson.optString("error", "Unknown error"))
+                    } catch (e: Exception) {
+                        "HTTP $responseCode: ${responseString.take(200)}"
+                    }
+                    
+                    logWriter.writeApiLog("API Error ($responseCode): $errorMessage\nResponse: $responseString", API_URL)
                     callback(null) // Lỗi kết nối
                 }
+                
                 connection.disconnect()
             } catch (e: Exception) {
                 e.printStackTrace()
                 // Ghi log exception
-                logWriter.writeApiLog("Exception: ${e.message}", API_URL)
+                logWriter.writeApiLog("Exception in checkUpdate: ${e.message}\nStack: ${e.stackTraceToString()}", API_URL)
                 callback(null) // Lỗi
             }
         }.start()

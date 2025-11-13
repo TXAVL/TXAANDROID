@@ -341,7 +341,7 @@ class SettingsActivity : AppCompatActivity() {
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(updateInfo.downloadUrl))
                 startActivity(intent)
             }
-            .setNegativeButton("Để sau", null)
+            .setNegativeButton("Skip for now", null)
             .show()
     }
     
