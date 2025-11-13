@@ -20,9 +20,17 @@ data class UpdateInfo(
     val forceUpdate: Boolean = false
 )
 
+data class VersionChangelog(
+    val versionName: String,
+    val versionCode: Int,
+    val releaseDate: String,
+    val changelog: String
+)
+
 class UpdateChecker(private val context: Context) {
     
     private val API_URL = "https://software.txahub.click/product/txahubapp/lastest"
+    private val API_URL_ALL_CHANGELOGS = "https://software.txahub.click/product/txahubapp/changelogs"
     private val logWriter = LogWriter(context)
     
     /**
@@ -245,6 +253,86 @@ class UpdateChecker(private val context: Context) {
                 logWriter.writeApiLog("Exception in checkUpdate: ${e.message}\nStack: ${e.stackTraceToString()}", API_URL)
                 logWriter.writeAppLog("Exception in checkUpdate: ${e.message}\n${e.stackTraceToString()}", "UpdateChecker", Log.ERROR)
                 callback(null) // Lỗi
+            }
+        }.start()
+    }
+    
+    /**
+     * Lấy tất cả changelog của mọi phiên bản
+     */
+    fun getAllChangelogs(callback: (List<VersionChangelog>) -> Unit) {
+        Thread {
+            try {
+                val url = URL(API_URL_ALL_CHANGELOGS)
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
+                
+                val responseCode = connection.responseCode
+                val inputStream = if (responseCode == HttpURLConnection.HTTP_OK) {
+                    connection.inputStream
+                } else {
+                    connection.errorStream
+                }
+                
+                val reader = BufferedReader(InputStreamReader(inputStream))
+                val response = StringBuilder()
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    response.append(line)
+                }
+                reader.close()
+                
+                val responseString = response.toString()
+                
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    // Ghi log success response
+                    logWriter.writeApiLog(responseString, API_URL_ALL_CHANGELOGS)
+                    
+                    try {
+                        val jsonArray = org.json.JSONArray(responseString)
+                        val changelogs = mutableListOf<VersionChangelog>()
+                        
+                        for (i in 0 until jsonArray.length()) {
+                            val json = jsonArray.getJSONObject(i)
+                            val versionChangelog = VersionChangelog(
+                                versionName = json.getString("version_name"),
+                                versionCode = json.getInt("version_code"),
+                                releaseDate = json.getString("release_date"),
+                                changelog = json.optString("changelog", "")
+                            )
+                            changelogs.add(versionChangelog)
+                        }
+                        
+                        // Sắp xếp theo version_code giảm dần (mới nhất trước)
+                        changelogs.sortByDescending { it.versionCode }
+                        
+                        callback(changelogs)
+                    } catch (e: Exception) {
+                        // JSON parsing error
+                        logWriter.writeApiLog("JSON Parse Error: ${e.message}\nResponse: $responseString", API_URL_ALL_CHANGELOGS)
+                        callback(emptyList())
+                    }
+                } else {
+                    // Xử lý error response
+                    val errorMessage = try {
+                        val errorJson = JSONObject(responseString)
+                        errorJson.optString("message", errorJson.optString("error", "Unknown error"))
+                    } catch (e: Exception) {
+                        "HTTP $responseCode: ${responseString.take(200)}"
+                    }
+                    
+                    logWriter.writeApiLog("API Error ($responseCode): $errorMessage\nResponse: $responseString", API_URL_ALL_CHANGELOGS)
+                    callback(emptyList())
+                }
+                
+                connection.disconnect()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                logWriter.writeApiLog("Exception in getAllChangelogs: ${e.message}\nStack: ${e.stackTraceToString()}", API_URL_ALL_CHANGELOGS)
+                logWriter.writeAppLog("Exception in getAllChangelogs: ${e.message}\n${e.stackTraceToString()}", "UpdateChecker", Log.ERROR)
+                callback(emptyList())
             }
         }.start()
     }

@@ -118,14 +118,9 @@ class UpdateCheckService : Service() {
         // Xử lý action ẩn thông báo
         if (intent?.action == ACTION_HIDE_NOTIFICATION) {
             prefs.edit().putBoolean("hide_background_notification", true).apply()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                // Android 14+ (API 34+)
-                stopForeground(Service.STOP_FOREGROUND_REMOVE)
-            } else {
-                @Suppress("DEPRECATION")
-                stopForeground(true)
-            }
-            // Service vẫn chạy nền, chỉ ẩn notification
+            // Vẫn phải giữ foreground notification (không thể stop vì service đang chạy foreground)
+            // Chỉ cập nhật notification để ít nổi bật hơn
+            createForegroundNotification(hideNotification = true)
             return START_STICKY
         }
         
@@ -136,10 +131,9 @@ class UpdateCheckService : Service() {
         // Kiểm tra xem có ẩn thông báo background không
         val hideNotification = prefs.getBoolean("hide_background_notification", false)
         
-        if (!hideNotification) {
-            // Tạo foreground notification (không thể xóa)
-            createForegroundNotification()
-        }
+        // QUAN TRỌNG: LUÔN phải gọi startForeground() khi dùng startForegroundService()
+        // Nếu không sẽ bị crash với RemoteServiceException
+        createForegroundNotification(hideNotification = hideNotification)
         
         // Bắt đầu check update định kỳ
         handler.post(checkRunnable)
@@ -148,8 +142,9 @@ class UpdateCheckService : Service() {
     
     /**
      * Tạo foreground notification không thể xóa
+     * @param hideNotification Nếu true, tạo notification tối thiểu (vẫn phải có để service chạy foreground)
      */
-    private fun createForegroundNotification() {
+    private fun createForegroundNotification(hideNotification: Boolean = false) {
         // Channel đã được tạo trong NotificationHelper, không cần tạo lại
         
         // Intent để mở app
@@ -163,35 +158,48 @@ class UpdateCheckService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         
-        // Intent để ẩn thông báo
-        val hideIntent = Intent(this, UpdateCheckService::class.java).apply {
-            action = ACTION_HIDE_NOTIFICATION
-        }
-        val hidePendingIntent = PendingIntent.getService(
-            this,
-            3,
-            hideIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID_BACKGROUND)
-            .setContentTitle("TXA Hub đang chạy nền")
-            .setContentText("Ứng dụng đang chạy nền để kiểm tra cập nhật")
+        val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID_BACKGROUND)
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
             .setContentIntent(openAppPendingIntent)
             .setOngoing(true) // Không thể xóa bằng swipe
             .setAutoCancel(false)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setShowWhen(false)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE) // Cho phép customize trong settings
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Hiển thị trên lock screen
-            .addAction(
-                android.R.drawable.ic_menu_close_clear_cancel,
-                "Ẩn thông báo",
-                hidePendingIntent
-            )
-            .build()
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
         
+        if (hideNotification) {
+            // Notification tối thiểu khi người dùng đã chọn ẩn
+            notificationBuilder
+                .setContentTitle("TXA Hub")
+                .setContentText("Đang chạy nền")
+                .setSilent(true) // Không có âm thanh
+        } else {
+            // Notification đầy đủ
+            // Intent để ẩn thông báo
+            val hideIntent = Intent(this, UpdateCheckService::class.java).apply {
+                action = ACTION_HIDE_NOTIFICATION
+            }
+            val hidePendingIntent = PendingIntent.getService(
+                this,
+                3,
+                hideIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            
+            notificationBuilder
+                .setContentTitle("TXA Hub đang chạy nền")
+                .setContentText("Ứng dụng đang chạy nền để kiểm tra cập nhật")
+                .addAction(
+                    android.R.drawable.ic_menu_close_clear_cancel,
+                    "Ẩn thông báo",
+                    hidePendingIntent
+                )
+        }
+        
+        val notification = notificationBuilder.build()
+        
+        // QUAN TRỌNG: LUÔN phải gọi startForeground() khi dùng startForegroundService()
         startForeground(NOTIFICATION_ID_BACKGROUND, notification)
     }
     

@@ -3,43 +3,55 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
     android:background="@color/white">
 
+    <!-- Header -->
     <TextView
-        android:id="@+id/tvVersion"
+        android:id="@+id/tvTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Phiên bản 1.1_txa"
+        android:text="Lịch sử thay đổi"
         android:textSize="20sp"
         android:textStyle="bold"
         android:gravity="center"
         android:padding="16dp"
-        android:textColor="@color/purple_500" />
+        android:textColor="@color/purple_500"
+        android:background="@color/white" />
 
-    <WebView
-        android:id="@+id/webViewChangelog"
+    <!-- Progress Bar -->
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="16dp"
+        android:visibility="gone" />
+
+    <!-- ScrollView chứa danh sách changelog -->
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:background="@color/white" />
+        android:fillViewport="true">
 
-    <CheckBox
-        android:id="@+id/cbHideThisVersion"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Không hiển thị changelog cho phiên bản này nữa"
-        android:padding="8dp"
-        android:textColor="@color/black" />
+        <LinearLayout
+            android:id="@+id/layoutChangelogList"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="0dp" />
 
+    </ScrollView>
+
+    <!-- Button Close -->
     <Button
-        android:id="@+id/btnContinue"
+        android:id="@+id/btnClose"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Tiếp tục"
+        android:text="Đóng"
         android:textColor="@color/white"
         android:background="@color/purple_500"
-        android:layout_marginTop="16dp"
+        android:layout_margin="16dp"
         android:padding="16dp" />
 
 </LinearLayout>

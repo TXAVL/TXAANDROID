@@ -91,12 +91,20 @@ class LogWriter(private val context: Context) {
      * Lấy folder log
      */
     fun getLogFolder(): File {
-        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            // Android 11+ sử dụng app-specific directory
-            File(context.getExternalFilesDir(null), LOG_FOLDER)
-        } else {
-            // Android 10 trở xuống
-            File(Environment.getExternalStorageDirectory(), LOG_FOLDER)
+        return when {
+            // Android 15+ (API 35+) - Lưu vào Downloads/TXAAPP/
+            android.os.Build.VERSION.SDK_INT >= 35 -> {
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                File(downloadsDir, LOG_FOLDER)
+            }
+            // Android 11-14 (API 30-34) - Sử dụng app-specific directory
+            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R -> {
+                File(context.getExternalFilesDir(null), LOG_FOLDER)
+            }
+            // Android 10 trở xuống - Lưu vào external storage root
+            else -> {
+                File(Environment.getExternalStorageDirectory(), LOG_FOLDER)
+            }
         }
     }
     
