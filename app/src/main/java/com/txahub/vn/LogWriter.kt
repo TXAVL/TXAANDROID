@@ -100,22 +100,6 @@ class LogWriter(private val context: Context) {
      * Lấy file log mới nhất
      */
     fun getLatestLogFile(): File? {
-<<<<<<< Current (Your changes)
-        val logFolder = getLogFolder()
-        if (!logFolder.exists() || !logFolder.isDirectory) {
-            return null
-        }
-        
-        val logFiles = logFolder.listFiles { file ->
-            file.isFile && file.name.startsWith(LOG_FILE_PREFIX) && file.name.endsWith(LOG_FILE_EXTENSION)
-        }
-        
-        return logFiles?.maxByOrNull { it.lastModified() }
-    }
-    
-    /**
-     * Lấy đường dẫn folder log để hiển thị cho người dùng
-=======
         try {
             val logFolder = getLogFolder()
             if (!logFolder.exists() || !logFolder.isDirectory) {
@@ -135,7 +119,6 @@ class LogWriter(private val context: Context) {
     
     /**
      * Lấy đường dẫn đầy đủ của folder log (để hiển thị cho người dùng)
->>>>>>> Incoming (Background Agent changes)
      */
     fun getLogFolderPath(): String {
         return getLogFolder().absolutePath

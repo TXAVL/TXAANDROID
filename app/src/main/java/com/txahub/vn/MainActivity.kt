@@ -23,8 +23,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.drawerlayout.widget.DrawerLayout
-import androidx.webkit.WebSettingsCompat
-import androidx.webkit.WebViewFeature
 
 class MainActivity : AppCompatActivity() {
 
@@ -45,6 +43,9 @@ class MainActivity : AppCompatActivity() {
 
         // Xử lý deep link
         handleIntent(intent)
+
+        // Setup back button handler
+        setupBackButtonHandler()
 
         // Load trang web
         webView.loadUrl(WEB_URL)
@@ -138,13 +139,6 @@ class MainActivity : AppCompatActivity() {
         val customUserAgent = "TXAAPP_${appName}/${appVersion} ${deviceName} ${osVersion} ${browserVersion}"
         webSettings.userAgentString = customUserAgent
 
-        // Dark mode support (nếu có)
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
-            WebSettingsCompat.setForceDark(
-                webSettings,
-                WebSettingsCompat.FORCE_DARK_AUTO
-            )
-        }
 
         // Thêm JavaScript Interface để web có thể gọi các quyền app
         webView.addJavascriptInterface(AppJavaScriptInterface(), "TXAApp")
@@ -329,12 +323,35 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Xử lý nút back
+     * Setup xử lý nút back
      */
+    private fun setupBackButtonHandler() {
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (webView.canGoBack()) {
+                    webView.goBack()
+                } else {
+                    finish()
+                }
+            }
+        })
+    }
+    
+    /**
+     * Xử lý nút back (deprecated, dùng cho Android cũ)
+     */
+    @Deprecated("Deprecated in Java", ReplaceWith("setupBackButtonHandler()"))
+    @Suppress("DEPRECATION")
     override fun onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack()
+        // Fallback cho Android cũ (API < 33)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            if (webView.canGoBack()) {
+                webView.goBack()
+            } else {
+                super.onBackPressed()
+            }
         } else {
+            // Android 13+ sử dụng OnBackPressedDispatcher
             super.onBackPressed()
         }
     }

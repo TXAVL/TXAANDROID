@@ -108,11 +108,7 @@
                 android:layout_marginTop="16dp"
                 android:visibility="gone" />
 
-<<<<<<< Current (Your changes)
             <!-- Nút mở file log (chỉ hiện khi đã cấp quyền ghi file) -->
-=======
-            <!-- Nút mở file log (chỉ hiện khi đã cấp quyền) -->
->>>>>>> Incoming (Background Agent changes)
             <Button
                 android:id="@+id/btnOpenLogFile"
                 android:layout_width="match_parent"

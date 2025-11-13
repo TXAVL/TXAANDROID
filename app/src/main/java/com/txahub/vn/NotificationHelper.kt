@@ -96,14 +96,14 @@ class NotificationHelper(private val context: Context) {
             "Phiên bản $versionName đã có sẵn. Nhấn để tải về."
         }
         
-        // Lấy icon app
+        // Lấy icon app để dùng làm large icon
         val appIcon = try {
             context.packageManager.getApplicationIcon(context.packageName)
         } catch (e: Exception) {
             null
         }
         
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        val notificationBuilder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_notify_sync) // Icon mặc định
             .setContentTitle(title)
             .setContentText(message)
@@ -122,8 +122,13 @@ class NotificationHelper(private val context: Context) {
                 "Mở app",
                 openAppPendingIntent
             )
-            .build()
         
+        // Thêm large icon nếu có
+        appIcon?.let {
+            notificationBuilder.setLargeIcon(it)
+        }
+        
+        val notification = notificationBuilder.build()
         NotificationManagerCompat.from(context).notify(NOTIFICATION_ID_UPDATE, notification)
     }
     
