@@ -95,44 +95,93 @@ class SettingsActivity : AppCompatActivity() {
     }
     
     /**
-     * Mở file log mới nhất bằng text editor mặc định
+     * Mở file log - hỏi loại log và hiển thị trong modal view
      */
     private fun openLogFile() {
+        // Hỏi người dùng muốn mở loại log nào
+        AlertDialog.Builder(this)
+            .setTitle("Chọn loại log")
+            .setItems(arrayOf("App Log", "Crash Log")) { _, which ->
+                when (which) {
+                    0 -> showLogViewer("app")
+                    1 -> showLogViewer("crash")
+                }
+            }
+            .setNegativeButton("Hủy", null)
+            .show()
+    }
+    
+    /**
+     * Hiển thị log viewer trong dialog
+     */
+    private fun showLogViewer(logType: String) {
         try {
-            val logFile = logWriter.getLatestLogFile()
-            if (logFile == null || !logFile.exists()) {
-                Toast.makeText(this, "Không tìm thấy file log", Toast.LENGTH_SHORT).show()
+            val logFolder = logWriter.getLogFolder()
+            if (!logFolder.exists() || !logFolder.isDirectory) {
+                Toast.makeText(this, "Không tìm thấy thư mục log", Toast.LENGTH_SHORT).show()
                 return
             }
             
-            // Tạo URI để mở file
-            val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                // Android 7.0+ cần sử dụng FileProvider
-                FileProvider.getUriForFile(
-                    this,
-                    "${packageName}.fileprovider",
-                    logFile
-                )
-            } else {
-                // Android < 7.0
-                Uri.fromFile(logFile)
+            // Tìm file log theo loại
+            val logFiles = logFolder.listFiles { file ->
+                file.isFile && when (logType) {
+                    "app" -> file.name.startsWith("TXAAPP_app_") && file.name.endsWith(".txa")
+                    "crash" -> file.name.startsWith("TXAAPP_crash_") && file.name.endsWith(".txa")
+                    else -> false
+                }
+            }?.sortedByDescending { it.lastModified() } ?: emptyList()
+            
+            if (logFiles.isEmpty()) {
+                Toast.makeText(this, "Không tìm thấy file log ${if (logType == "app") "ứng dụng" else "crash"}", Toast.LENGTH_SHORT).show()
+                return
             }
             
-            // Mở file bằng text editor mặc định
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "text/plain")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            // Lấy file mới nhất
+            val logFile = logFiles.first()
+            
+            // Đọc nội dung file
+            val content = logFile.readText()
+            val lines = content.lines()
+            val lineCount = lines.size
+            
+            // Tạo dialog với custom view
+            val dialogView = layoutInflater.inflate(R.layout.dialog_log_viewer, null)
+            val tvLogTitle = dialogView.findViewById<TextView>(R.id.tvLogTitle)
+            val tvLogContent = dialogView.findViewById<TextView>(R.id.tvLogContent)
+            val tvLineCount = dialogView.findViewById<TextView>(R.id.tvLineCount)
+            val btnClose = dialogView.findViewById<Button>(R.id.btnClose)
+            
+            tvLogTitle.text = "File: ${logFile.name}"
+            
+            // Hiển thị nội dung với số dòng
+            val contentWithLineNumbers = StringBuilder()
+            lines.forEachIndexed { index, line ->
+                contentWithLineNumbers.append("${index + 1}: $line\n")
+            }
+            tvLogContent.text = contentWithLineNumbers.toString()
+            
+            tvLineCount.text = "Tổng số dòng: $lineCount"
+            
+            val dialog = AlertDialog.Builder(this)
+                .setView(dialogView)
+                .create()
+            
+            btnClose.setOnClickListener {
+                dialog.dismiss()
             }
             
-            if (intent.resolveActivity(packageManager) != null) {
-                startActivity(intent)
-                Toast.makeText(this, "Đã mở file log: ${logFile.name}", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "Không tìm thấy ứng dụng để mở file log", Toast.LENGTH_SHORT).show()
-            }
+            dialog.show()
+            
+            // Đặt kích thước dialog
+            val window = dialog.window
+            window?.setLayout(
+                (resources.displayMetrics.widthPixels * 0.9).toInt(),
+                (resources.displayMetrics.heightPixels * 0.8).toInt()
+            )
+            
         } catch (e: Exception) {
             e.printStackTrace()
-            Toast.makeText(this, "Lỗi khi mở file log: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Lỗi khi đọc file log: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
     

@@ -16,32 +16,50 @@ import androidx.core.app.NotificationManagerCompat
 class NotificationHelper(private val context: Context) {
     
     companion object {
-        private const val CHANNEL_ID = "txahub_update_channel"
-        private const val CHANNEL_NAME = "Cập nhật TXA Hub"
+        private const val CHANNEL_ID_UPDATE = "txahub_update_channel"
+        private const val CHANNEL_NAME_UPDATE = "Cập nhật TXA Hub"
+        private const val CHANNEL_ID_BACKGROUND = "txahub_background_channel"
+        private const val CHANNEL_NAME_BACKGROUND = "TXA Hub đang chạy nền"
         private const val NOTIFICATION_ID_UPDATE = 1001
     }
     
     init {
-        createNotificationChannel()
+        createNotificationChannels()
     }
     
     /**
-     * Tạo notification channel cho Android 8.0+
+     * Tạo các notification channels cho Android 8.0+
      */
-    private fun createNotificationChannel() {
+    private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                CHANNEL_NAME,
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            
+            // Channel cho thông báo cập nhật
+            val updateChannel = NotificationChannel(
+                CHANNEL_ID_UPDATE,
+                CHANNEL_NAME_UPDATE,
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Thông báo về bản cập nhật mới của TXA Hub"
+                description = "Thông báo về bản cập nhật mới nhất của TXA Hub"
                 enableVibration(true)
                 enableLights(true)
+                setShowBadge(true)
             }
             
-            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
+            // Channel cho thông báo chạy nền
+            val backgroundChannel = NotificationChannel(
+                CHANNEL_ID_BACKGROUND,
+                CHANNEL_NAME_BACKGROUND,
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Thông báo ứng dụng đang chạy nền, cái này khuyến nghị không nên tắt"
+                enableVibration(false)
+                enableLights(false)
+                setShowBadge(false)
+            }
+            
+            notificationManager.createNotificationChannel(updateChannel)
+            notificationManager.createNotificationChannel(backgroundChannel)
         }
     }
     
@@ -109,7 +127,7 @@ class NotificationHelper(private val context: Context) {
         // Chuyển đổi Drawable thành Bitmap
         val appIconBitmap = appIconDrawable?.let { drawableToBitmap(it) }
         
-        val notificationBuilder = NotificationCompat.Builder(context, CHANNEL_ID)
+        val notificationBuilder = NotificationCompat.Builder(context, CHANNEL_ID_UPDATE)
             .setSmallIcon(android.R.drawable.stat_notify_sync) // Icon mặc định
             .setContentTitle(title)
             .setContentText(message)
@@ -118,6 +136,8 @@ class NotificationHelper(private val context: Context) {
             .setAutoCancel(true)
             .setContentIntent(downloadPendingIntent)
             .setDefaults(NotificationCompat.DEFAULT_ALL) // Sound, vibration, lights
+            .setCategory(NotificationCompat.CATEGORY_STATUS) // Cho phép customize trong settings
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Hiển thị trên lock screen
             .addAction(
                 android.R.drawable.ic_dialog_info,
                 "Tải ngay",

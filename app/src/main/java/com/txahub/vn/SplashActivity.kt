@@ -77,18 +77,20 @@ class SplashActivity : AppCompatActivity() {
 
     private fun checkForUpdate() {
         updateChecker.checkUpdate { updateInfo ->
-            if (updateInfo != null) {
-                // Có bản cập nhật mới
-                if (updateInfo.forceUpdate) {
-                    // Bắt buộc cập nhật - chặn và yêu cầu tải, không có nút Skip
-                    showForceUpdateDialog(updateInfo)
+            runOnUiThread {
+                if (updateInfo != null) {
+                    // Có bản cập nhật mới
+                    if (updateInfo.forceUpdate) {
+                        // Bắt buộc cập nhật - chặn và yêu cầu tải, không có nút Skip
+                        showForceUpdateDialog(updateInfo)
+                    } else {
+                        // Không bắt buộc, hiển thị dialog với nút "Skip for now"
+                        showOptionalUpdateDialog(updateInfo)
+                    }
                 } else {
-                    // Không bắt buộc, hiển thị dialog với nút "Skip for now"
-                    showOptionalUpdateDialog(updateInfo)
+                    // Không có bản cập nhật, tiếp tục như bình thường
+                    proceedToNextScreen()
                 }
-            } else {
-                // Không có bản cập nhật, tiếp tục như bình thường
-                proceedToNextScreen()
             }
         }
     }

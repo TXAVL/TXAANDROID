@@ -25,7 +25,7 @@ class UpdateCheckService : Service() {
     private var lastNotificationTime: Long = 0
     
     companion object {
-        private const val CHANNEL_ID_BACKGROUND = "txahub_background_channel"
+        const val CHANNEL_ID_BACKGROUND = "txahub_background_channel"
         private const val NOTIFICATION_ID_BACKGROUND = 1002
         private const val ACTION_HIDE_NOTIFICATION = "com.txahub.vn.HIDE_BACKGROUND_NOTIFICATION"
         
@@ -150,19 +150,7 @@ class UpdateCheckService : Service() {
      * Tạo foreground notification không thể xóa
      */
     private fun createForegroundNotification() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID_BACKGROUND,
-                "TXA Hub đang chạy nền",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Thông báo ứng dụng đang chạy nền"
-                setShowBadge(false)
-            }
-            
-            val notificationManager = getSystemService(NotificationManager::class.java)
-            notificationManager.createNotificationChannel(channel)
-        }
+        // Channel đã được tạo trong NotificationHelper, không cần tạo lại
         
         // Intent để mở app
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
@@ -195,6 +183,8 @@ class UpdateCheckService : Service() {
             .setAutoCancel(false)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setShowWhen(false)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE) // Cho phép customize trong settings
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Hiển thị trên lock screen
             .addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
                 "Ẩn thông báo",
