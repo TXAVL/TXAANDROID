@@ -22,6 +22,7 @@ data class UpdateInfo(
 class UpdateChecker(private val context: Context) {
     
     private val API_URL = "https://software.txahub.click/product/txahubapp/lastest"
+    private val logWriter = LogWriter(context)
     
     /**
      * Lấy version hiện tại của app
@@ -98,7 +99,11 @@ class UpdateChecker(private val context: Context) {
                     }
                     reader.close()
                     
-                    val json = JSONObject(response.toString())
+                    // Ghi log
+                    val responseString = response.toString()
+                    logWriter.writeApiLog(responseString, API_URL)
+                    
+                    val json = JSONObject(responseString)
                     val latestVersion = json.getString("version_name")
                     
                     // Nếu version hiện tại trùng với version mới nhất, trả về changelog
@@ -141,7 +146,11 @@ class UpdateChecker(private val context: Context) {
                     }
                     reader.close()
                     
-                    val json = JSONObject(response.toString())
+                    // Ghi log phản hồi API
+                    val responseString = response.toString()
+                    logWriter.writeApiLog(responseString, API_URL)
+                    
+                    val json = JSONObject(responseString)
                     val updateInfo = UpdateInfo(
                         versionName = json.getString("version_name"),
                         versionCode = json.getInt("version_code"),
@@ -160,11 +169,15 @@ class UpdateChecker(private val context: Context) {
                         callback(null) // Không có bản cập nhật
                     }
                 } else {
+                    // Ghi log lỗi
+                    logWriter.writeApiLog("Error: HTTP $responseCode", API_URL)
                     callback(null) // Lỗi kết nối
                 }
                 connection.disconnect()
             } catch (e: Exception) {
                 e.printStackTrace()
+                // Ghi log exception
+                logWriter.writeApiLog("Exception: ${e.message}", API_URL)
                 callback(null) // Lỗi
             }
         }.start()

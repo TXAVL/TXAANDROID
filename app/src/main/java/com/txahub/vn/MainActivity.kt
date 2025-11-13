@@ -7,23 +7,29 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.view.Gravity
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.ImageButton
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private lateinit var drawerLayout: DrawerLayout
     private val WEB_URL = "https://txahub.click"
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -31,7 +37,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        drawerLayout = findViewById(R.id.drawerLayout)
         webView = findViewById(R.id.webView)
+        
+        setupSidebar()
         setupWebView()
 
         // Xử lý deep link
@@ -39,6 +48,44 @@ class MainActivity : AppCompatActivity() {
 
         // Load trang web
         webView.loadUrl(WEB_URL)
+        
+        // Start background update check service nếu có quyền tối ưu hóa pin
+        UpdateCheckService.startIfAllowed(this)
+    }
+    
+    private fun setupSidebar() {
+        // Menu button
+        val btnMenu = findViewById<ImageButton>(R.id.btnMenu)
+        btnMenu.setOnClickListener {
+            drawerLayout.openDrawer(Gravity.START)
+        }
+        
+        // Version text in header
+        val tvAppVersion = findViewById<TextView>(R.id.tvAppVersion)
+        try {
+            val packageInfo = packageManager.getPackageInfo(packageName, 0)
+            val versionName = packageInfo.versionName ?: "1.1_txa"
+            tvAppVersion.text = "Version $versionName"
+        } catch (e: Exception) {
+            tvAppVersion.text = "Version 1.1_txa"
+        }
+        
+        // Menu: Vào app chính
+        val menuAppMain = findViewById<LinearLayout>(R.id.menuAppMain)
+        menuAppMain.setOnClickListener {
+            // Reload trang web chính
+            webView.loadUrl(WEB_URL)
+            drawerLayout.closeDrawer(Gravity.START)
+            Toast.makeText(this, "Đã chuyển đến app chính", Toast.LENGTH_SHORT).show()
+        }
+        
+        // Menu: Settings
+        val menuVersionInfo = findViewById<LinearLayout>(R.id.menuVersionInfo)
+        menuVersionInfo.setOnClickListener {
+            val intent = Intent(this, SettingsActivity::class.java)
+            startActivity(intent)
+            drawerLayout.closeDrawer(Gravity.START)
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")

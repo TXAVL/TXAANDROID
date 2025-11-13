@@ -18,8 +18,60 @@ class SplashActivity : AppCompatActivity() {
 
         updateChecker = UpdateChecker(this)
         
-        // Kiểm tra cập nhật
-        checkForUpdate()
+        // Kiểm tra quyền trước, sau đó mới check update
+        checkPermissions()
+    }
+    
+    private fun checkPermissions() {
+        // Kiểm tra các quyền cần thiết
+        val hasNotification = checkNotificationPermission()
+        val hasStorage = checkStoragePermission()
+        val hasBattery = checkBatteryOptimization()
+        
+        if (!hasNotification || !hasStorage || !hasBattery) {
+            // Chưa đủ quyền, hiển thị PermissionRequestActivity
+            Handler(Looper.getMainLooper()).postDelayed({
+                val intent = Intent(this, PermissionRequestActivity::class.java)
+                // Truyền deep link nếu có
+                val data = this.intent?.data
+                if (data != null) {
+                    intent.data = data
+                    intent.action = Intent.ACTION_VIEW
+                }
+                startActivity(intent)
+                finish()
+            }, SPLASH_DELAY)
+        } else {
+            // Đã đủ quyền, check update
+            checkForUpdate()
+        }
+    }
+    
+    private fun checkNotificationPermission(): Boolean {
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            android.content.pm.PackageManager.PERMISSION_GRANTED == 
+                checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            android.app.NotificationManagerCompat.from(this).areNotificationsEnabled()
+        }
+    }
+    
+    private fun checkStoragePermission(): Boolean {
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            android.os.Environment.isExternalStorageManager()
+        } else {
+            android.content.pm.PackageManager.PERMISSION_GRANTED == 
+                checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }
+    }
+    
+    private fun checkBatteryOptimization(): Boolean {
+        val pm = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            pm.isIgnoringBatteryOptimizations(packageName)
+        } else {
+            true
+        }
     }
 
     private fun checkForUpdate() {
