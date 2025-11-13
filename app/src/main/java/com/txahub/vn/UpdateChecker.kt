@@ -207,8 +207,17 @@ class UpdateChecker(private val context: Context) {
                         
                         // Kiểm tra xem có phải bản mới hơn không
                         val currentVersion = getCurrentVersion()
-                        if (isNewerVersion(updateInfo.versionName, currentVersion) || 
-                            updateInfo.versionCode > getCurrentVersionCode()) {
+                        val currentVersionCode = getCurrentVersionCode()
+                        
+                        // Chỉ báo update khi version thực sự mới hơn (không bằng)
+                        val isVersionNewer = isNewerVersion(updateInfo.versionName, currentVersion)
+                        val isCodeNewer = updateInfo.versionCode > currentVersionCode
+                        
+                        // Nếu version name hoặc version code bằng nhau thì không có update
+                        val isSameVersion = updateInfo.versionName == currentVersion && 
+                                           updateInfo.versionCode == currentVersionCode
+                        
+                        if (!isSameVersion && (isVersionNewer || isCodeNewer)) {
                             callback(updateInfo)
                         } else {
                             callback(null) // Không có bản cập nhật

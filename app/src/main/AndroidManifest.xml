@@ -28,6 +28,9 @@
     
     <!-- Quyền tối ưu hóa pin -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    
+    <!-- Quyền foreground service (Android 9+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
         android:name=".TXAApplication"
@@ -95,7 +98,8 @@
         <service
             android:name=".UpdateCheckService"
             android:enabled="true"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
         
         <!-- FileProvider để chia sẻ file log -->
         <provider

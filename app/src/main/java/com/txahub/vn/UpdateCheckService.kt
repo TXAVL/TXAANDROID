@@ -28,6 +28,40 @@ class UpdateCheckService : Service() {
         private const val CHANNEL_ID_BACKGROUND = "txahub_background_channel"
         private const val NOTIFICATION_ID_BACKGROUND = 1002
         private const val ACTION_HIDE_NOTIFICATION = "com.txahub.vn.HIDE_BACKGROUND_NOTIFICATION"
+        
+        /**
+         * Kiểm tra xem có quyền tối ưu hóa pin không
+         */
+        fun hasBatteryOptimizationPermission(context: Context): Boolean {
+            val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                pm.isIgnoringBatteryOptimizations(context.packageName)
+            } else {
+                true
+            }
+        }
+        
+        /**
+         * Start service nếu có quyền
+         */
+        fun startIfAllowed(context: Context) {
+            if (hasBatteryOptimizationPermission(context)) {
+                val intent = Intent(context, UpdateCheckService::class.java)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            }
+        }
+        
+        /**
+         * Stop service
+         */
+        fun stop(context: Context) {
+            val intent = Intent(context, UpdateCheckService::class.java)
+            context.stopService(intent)
+        }
     }
     
     private val checkRunnable = object : Runnable {
@@ -84,7 +118,13 @@ class UpdateCheckService : Service() {
         // Xử lý action ẩn thông báo
         if (intent?.action == ACTION_HIDE_NOTIFICATION) {
             prefs.edit().putBoolean("hide_background_notification", true).apply()
-            stopForeground(true)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                // Android 14+ (API 34+)
+                stopForeground(Service.STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
             // Service vẫn chạy nền, chỉ ẩn notification
             return START_STICKY
         }
@@ -168,42 +208,6 @@ class UpdateCheckService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(checkRunnable)
-    }
-    
-    companion object {
-        /**
-         * Kiểm tra xem có quyền tối ưu hóa pin không
-         */
-        fun hasBatteryOptimizationPermission(context: Context): Boolean {
-            val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-            return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                pm.isIgnoringBatteryOptimizations(context.packageName)
-            } else {
-                true
-            }
-        }
-        
-        /**
-         * Start service nếu có quyền
-         */
-        fun startIfAllowed(context: Context) {
-            if (hasBatteryOptimizationPermission(context)) {
-                val intent = Intent(context, UpdateCheckService::class.java)
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                    context.startForegroundService(intent)
-                } else {
-                    context.startService(intent)
-                }
-            }
-        }
-        
-        /**
-         * Stop service
-         */
-        fun stop(context: Context) {
-            val intent = Intent(context, UpdateCheckService::class.java)
-            context.stopService(intent)
-        }
     }
 }
 

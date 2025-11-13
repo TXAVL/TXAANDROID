@@ -96,6 +96,7 @@ class NetworkMonitor(private val context: Context) {
             } else {
                 @Suppress("DEPRECATION")
                 val networkInfo = cm?.activeNetworkInfo
+                @Suppress("DEPRECATION")
                 networkInfo?.isConnected == true
             }
         } catch (e: Exception) {
@@ -126,6 +127,7 @@ class NetworkMonitor(private val context: Context) {
             } else {
                 @Suppress("DEPRECATION")
                 val networkInfo = cm?.activeNetworkInfo
+                @Suppress("DEPRECATION")
                 networkInfo?.typeName ?: "Unknown"
             }
         } catch (e: Exception) {

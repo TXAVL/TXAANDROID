@@ -73,7 +73,8 @@ class ShortcutHelper(private val context: Context) {
     ): ShortcutInfo {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(deepLink)).apply {
             setPackage(context.packageName)
-            addCategory(Intent.CATEGORY_LAUNCHER)
+            addCategory(Intent.CATEGORY_DEFAULT)
+            addCategory(Intent.CATEGORY_BROWSABLE)
         }
         
         return ShortcutInfo.Builder(context, id)
@@ -95,6 +96,8 @@ class ShortcutHelper(private val context: Context) {
                 .setIcon(IconCompat.createWithResource(context, android.R.drawable.ic_menu_view))
                 .setIntent(Intent(Intent.ACTION_VIEW, Uri.parse("txahub://dashboard")).apply {
                     setPackage(context.packageName)
+                    addCategory(Intent.CATEGORY_DEFAULT)
+                    addCategory(Intent.CATEGORY_BROWSABLE)
                 })
                 .build(),
             ShortcutInfoCompat.Builder(context, SHORTCUT_PROFILE)
@@ -103,6 +106,8 @@ class ShortcutHelper(private val context: Context) {
                 .setIcon(IconCompat.createWithResource(context, android.R.drawable.ic_menu_myplaces))
                 .setIntent(Intent(Intent.ACTION_VIEW, Uri.parse("txahub://account")).apply {
                     setPackage(context.packageName)
+                    addCategory(Intent.CATEGORY_DEFAULT)
+                    addCategory(Intent.CATEGORY_BROWSABLE)
                 })
                 .build(),
             ShortcutInfoCompat.Builder(context, SHORTCUT_PREFERENCES)
@@ -111,6 +116,8 @@ class ShortcutHelper(private val context: Context) {
                 .setIcon(IconCompat.createWithResource(context, android.R.drawable.ic_menu_preferences))
                 .setIntent(Intent(Intent.ACTION_VIEW, Uri.parse("txahub://account-preferences")).apply {
                     setPackage(context.packageName)
+                    addCategory(Intent.CATEGORY_DEFAULT)
+                    addCategory(Intent.CATEGORY_BROWSABLE)
                 })
                 .build()
         )
