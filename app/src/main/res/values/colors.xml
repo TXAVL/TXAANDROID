@@ -1,10 +1,44 @@
 <resources>
-    <!-- TXA Android base colors -->
-    <color name="purple_200">#BB86FC</color>
-    <color name="purple_500">#6200EE</color>
-    <color name="purple_700">#3700B3</color>
-    <color name="teal_200">#03DAC5</color>
-    <color name="teal_700">#018786</color>
-    <color name="black">#000000</color>
+    <!-- TXA Hub Brand Colors -->
+    <!-- Primary Colors - Blue/Purple Gradient -->
+    <color name="txa_primary">#6366F1</color>
+    <color name="txa_primary_dark">#4F46E5</color>
+    <color name="txa_primary_light">#818CF8</color>
+    <color name="txa_primary_variant">#4338CA</color>
+    
+    <!-- Secondary Colors - Cyan/Teal -->
+    <color name="txa_secondary">#06B6D4</color>
+    <color name="txa_secondary_dark">#0891B2</color>
+    <color name="txa_secondary_light">#22D3EE</color>
+    <color name="txa_secondary_variant">#0E7490</color>
+    
+    <!-- Accent Colors -->
+    <color name="txa_accent">#F59E0B</color>
+    <color name="txa_accent_dark">#D97706</color>
+    
+    <!-- Background Colors -->
+    <color name="txa_background">#F8FAFC</color>
+    <color name="txa_surface">#FFFFFF</color>
+    <color name="txa_surface_dark">#1E293B</color>
+    
+    <!-- Text Colors -->
+    <color name="txa_text_primary">#0F172A</color>
+    <color name="txa_text_secondary">#64748B</color>
+    <color name="txa_text_on_primary">#FFFFFF</color>
+    <color name="txa_text_on_secondary">#FFFFFF</color>
+    
+    <!-- Status Colors -->
+    <color name="txa_success">#10B981</color>
+    <color name="txa_warning">#F59E0B</color>
+    <color name="txa_error">#EF4444</color>
+    <color name="txa_info">#3B82F6</color>
+    
+    <!-- Legacy colors for compatibility -->
+    <color name="purple_200">#818CF8</color>
+    <color name="purple_500">#6366F1</color>
+    <color name="purple_700">#4F46E5</color>
+    <color name="teal_200">#22D3EE</color>
+    <color name="teal_700">#0891B2</color>
+    <color name="black">#0F172A</color>
     <color name="white">#FFFFFF</color>
 </resources>

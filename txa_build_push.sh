@@ -29,13 +29,35 @@ for arg in "$@"; do
   esac
 done
 
+# --- Stop old Gradle daemons to free memory ---
+echo "🧹 Stopping old Gradle daemons..."
+./gradlew --stop >/dev/null 2>&1 || true
+
 # --- Build ---
 if [ "$MODE" = "release" ]; then
   echo "🔧 Building TXA Hub Mobile RELEASE APK..."
-  if [ -z "$STOREPASS" ]; then
-    read -s -p "🔑 Enter keystore password: " STOREPASS; echo ""
-    read -s -p "🔑 Enter key password (if same, press Enter): " KEYPASS; echo ""
-    [ -z "$KEYPASS" ] && KEYPASS="$STOREPASS"
+  
+  # Kiểm tra keystore, nếu chưa có thì tạo mới
+  if [ ! -f "$KEYSTORE" ]; then
+    echo "📝 Keystore not found. Creating new keystore..."
+    if [ -z "$STOREPASS" ]; then
+      read -s -p "🔑 Enter keystore password (will be used for both store and key): " STOREPASS; echo ""
+      KEYPASS="$STOREPASS"
+    fi
+    echo "📝 Creating keystore with alias: $ALIAS"
+    keytool -genkey -v -keystore "$KEYSTORE" -alias "$ALIAS" -keyalg RSA -keysize 2048 -validity 10000 -storepass "$STOREPASS" -keypass "$KEYPASS" -dname "CN=TXA Hub, OU=Development, O=TXA Hub, L=Ho Chi Minh, ST=Ho Chi Minh, C=VN"
+    if [ $? -ne 0 ]; then
+      echo "❌ Failed to create keystore!"
+      exit 1
+    fi
+    echo "✅ Keystore created successfully!"
+  else
+    echo "✅ Keystore found: $KEYSTORE"
+    if [ -z "$STOREPASS" ]; then
+      read -s -p "🔑 Enter keystore password: " STOREPASS; echo ""
+      read -s -p "🔑 Enter key password (if same, press Enter): " KEYPASS; echo ""
+      [ -z "$KEYPASS" ] && KEYPASS="$STOREPASS"
+    fi
   fi
   ./gradlew assembleMobileRelease -Pandroid.injected.signing.store.file="$KEYSTORE" \
                                    -Pandroid.injected.signing.store.password="$STOREPASS" \

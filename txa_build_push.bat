@@ -20,13 +20,35 @@ REM --- Parse arguments ---
 set MODE=debug
 if "%1"=="--release" set MODE=release
 
+REM --- Stop old Gradle daemons to free memory ---
+echo 🧹 Stopping old Gradle daemons...
+call gradlew.bat --stop >nul 2>&1
+
 REM --- Build ---
 if "%MODE%"=="release" (
     echo 🔧 Building TXA Hub Mobile RELEASE APK...
-    if "!STOREPASS!"=="" (
-        set /p STOREPASS="🔑 Enter keystore password: "
-        set /p KEYPASS="🔑 Enter key password (if same, press Enter): "
-        if "!KEYPASS!"=="" set KEYPASS=!STOREPASS!
+    
+    REM Kiểm tra keystore, nếu chưa có thì tạo mới
+    if not exist "%KEYSTORE%" (
+        echo 📝 Keystore not found. Creating new keystore...
+        if "!STOREPASS!"=="" (
+            set /p STOREPASS="🔑 Enter keystore password (will be used for both store and key): "
+            set KEYPASS=!STOREPASS!
+        )
+        echo 📝 Creating keystore with alias: %ALIAS%
+        keytool -genkey -v -keystore "%KEYSTORE%" -alias %ALIAS% -keyalg RSA -keysize 2048 -validity 10000 -storepass "!STOREPASS!" -keypass "!KEYPASS!" -dname "CN=TXA Hub, OU=Development, O=TXA Hub, L=Ho Chi Minh, ST=Ho Chi Minh, C=VN"
+        if errorlevel 1 (
+            echo ❌ Failed to create keystore!
+            exit /b 1
+        )
+        echo ✅ Keystore created successfully!
+    ) else (
+        echo ✅ Keystore found: %KEYSTORE%
+        if "!STOREPASS!"=="" (
+            set /p STOREPASS="🔑 Enter keystore password: "
+            set /p KEYPASS="🔑 Enter key password (if same, press Enter): "
+            if "!KEYPASS!"=="" set KEYPASS=!STOREPASS!
+        )
     )
     call gradlew.bat assembleMobileRelease -Pandroid.injected.signing.store.file="%KEYSTORE%" ^
                                           -Pandroid.injected.signing.store.password="!STOREPASS!" ^
@@ -58,7 +80,13 @@ if not exist "!APK_SRC!" (
 REM --- Copy to releases ---
 if not exist "%RELEASE_DIR%" mkdir "%RELEASE_DIR%"
 REM Tạo tên file với timestamp (YYYYMMDD_HHMMSS)
-for /f "delims=" %%i in ('powershell -Command "Get-Date -Format 'yyyyMMdd_HHmmss'"') do set DATETIME=%%i
+for /f "delims=" %%i in ('powershell -NoProfile -Command "Get-Date -Format \"yyyyMMdd_HHmmss\""') do set DATETIME=%%i
+if "!DATETIME!"=="" (
+    echo ⚠️ Failed to get timestamp, using fallback...
+    for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set datetime=%%I
+    set datetime=!datetime:~0,8!_!datetime:~8,6!
+    set DATETIME=!datetime!
+)
 set APK_DEST_NAME=TXAHUB_APP_!DATETIME!.apk
 copy "!APK_SRC!" "%RELEASE_DIR%\!APK_DEST_NAME!" >nul
 

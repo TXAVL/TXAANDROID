@@ -3,14 +3,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/white">
+    android:background="@color/txa_background">
 
     <!-- Header -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="56dp"
         android:orientation="horizontal"
-        android:background="@color/purple_500"
+        android:background="@color/txa_primary"
         android:gravity="center_vertical"
         android:paddingStart="16dp"
         android:paddingEnd="16dp">
@@ -58,7 +58,7 @@
                 android:text="Quyền ứng dụng"
                 android:textSize="18sp"
                 android:textStyle="bold"
-                android:textColor="@color/purple_500"
+                android:textColor="@color/txa_primary"
                 android:layout_marginBottom="16dp" />
 
             <LinearLayout
@@ -74,7 +74,7 @@
                 android:text="Thông tin phiên bản"
                 android:textSize="18sp"
                 android:textStyle="bold"
-                android:textColor="@color/purple_500"
+                android:textColor="@color/txa_primary"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="16dp" />
 
@@ -84,7 +84,7 @@
                 android:layout_height="wrap_content"
                 android:text="Đang tải..."
                 android:textSize="14sp"
-                android:textColor="@color/black"
+                android:textColor="@color/txa_text_primary"
                 android:padding="16dp"
                 android:background="@drawable/bg_permission_item"
                 android:lineSpacingExtra="4dp" />
@@ -96,7 +96,7 @@
                 android:layout_height="wrap_content"
                 android:text="Kiểm tra cập nhật"
                 android:textColor="@color/white"
-                android:background="@color/purple_500"
+                android:backgroundTint="@color/txa_primary"
                 android:layout_marginTop="24dp"
                 android:padding="16dp" />
 
