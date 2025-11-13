@@ -1,0 +1,94 @@
+@echo off
+REM ============================================
+REM TXA Hub Auto Build & Push Script (Windows)
+REM Supports debug + release, auto auth GitHub
+REM ============================================
+
+setlocal enabledelayedexpansion
+
+REM --- Config ---
+set RELEASE_DIR=releases
+REM Chỉ build mobile flavor
+set DEBUG_APK_SRC=app\build\outputs\apk\mobile\debug\app-mobile-debug.apk
+set RELEASE_APK_SRC=app\build\outputs\apk\mobile\release\app-mobile-release.apk
+set KEYSTORE=%CD%\txa-release-key.keystore
+set ALIAS=txa_release
+set STOREPASS=
+set KEYPASS=
+
+REM --- Parse arguments ---
+set MODE=debug
+if "%1"=="--release" set MODE=release
+
+REM --- Build ---
+if "%MODE%"=="release" (
+    echo 🔧 Building TXA Hub Mobile RELEASE APK...
+    if "!STOREPASS!"=="" (
+        set /p STOREPASS="🔑 Enter keystore password: "
+        set /p KEYPASS="🔑 Enter key password (if same, press Enter): "
+        if "!KEYPASS!"=="" set KEYPASS=!STOREPASS!
+    )
+    call gradlew.bat assembleMobileRelease -Pandroid.injected.signing.store.file="%KEYSTORE%" ^
+                                          -Pandroid.injected.signing.store.password="!STOREPASS!" ^
+                                          -Pandroid.injected.signing.key.alias="%ALIAS%" ^
+                                          -Pandroid.injected.signing.key.password="!KEYPASS!"
+) else (
+    echo 🔧 Building TXA Hub Mobile DEBUG APK...
+    call gradlew.bat assembleMobileDebug
+)
+
+if errorlevel 1 (
+    echo ❌ Build failed!
+    exit /b 1
+)
+
+REM --- Select built file ---
+if "%MODE%"=="release" (
+    set APK_SRC=!RELEASE_APK_SRC!
+) else (
+    set APK_SRC=!DEBUG_APK_SRC!
+)
+
+REM --- Check APK existence ---
+if not exist "!APK_SRC!" (
+    echo ❌ APK not found: !APK_SRC!
+    exit /b 1
+)
+
+REM --- Copy to releases ---
+if not exist "%RELEASE_DIR%" mkdir "%RELEASE_DIR%"
+REM Tạo tên file với timestamp (YYYYMMDD_HHMMSS)
+for /f "delims=" %%i in ('powershell -Command "Get-Date -Format 'yyyyMMdd_HHmmss'"') do set DATETIME=%%i
+set APK_DEST_NAME=TXAHUB_APP_!DATETIME!.apk
+copy "!APK_SRC!" "%RELEASE_DIR%\!APK_DEST_NAME!" >nul
+
+REM --- Git commit ---
+echo 📦 Committing %MODE% APK to Git...
+git add -f "%RELEASE_DIR%\!APK_DEST_NAME!"
+git commit -m "Auto-build: Add !APK_DEST_NAME!" 2>nul || echo No changes to commit
+
+REM --- Git push ---
+echo ☁️ Pushing to GitHub...
+git push origin main
+if errorlevel 1 (
+    echo ⚠️ Push failed. Attempting re-authorization...
+    set /p GH_USER="👉 Enter your GitHub username: "
+    set /p GH_TOKEN="🔑 Enter your GitHub personal access token: "
+    set NEW_URL=https://!GH_USER!:!GH_TOKEN!@github.com/TXAVL/TXAANDROID.git
+    git remote set-url origin "!NEW_URL!"
+    echo 🔁 Retrying push...
+    git push origin main
+    if errorlevel 1 (
+        echo ❌ Push failed again. Check token or network.
+        exit /b 1
+    ) else (
+        echo ✅ Push successful after re-auth.
+    )
+) else (
+    echo ✅ Push successful.
+)
+
+echo 🎉 Done! APK uploaded: releases\!APK_DEST_NAME!
+
+endlocal
+

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================
-# TXA Android Auto Build & Push Script (v3)
+# TXA Hub Auto Build & Push Script (Linux/Mac)
 # Supports debug + release, auto auth GitHub
 # ============================================
 
