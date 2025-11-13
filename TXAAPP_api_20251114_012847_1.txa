@@ -1,7 +1,0 @@
-=== API Log ===
-Time: 2025-11-14 01:28:48
-URL: https://software.txahub.click/product/txahubapp/lastest
-Response:
-{    "version_name": "1.4.1_txa",    "version_code": 31,    "release_date": "2025-11-14",    "changelog": "<ol><li><i><strong>Thông báo cập nhật luôn hiển thị: Set bypassDnd và PRIORITY_MAX để hiển thị ngay cả khi bật \"Không làm phiền\"<\/strong><\/i><\/li><li><i><strong>Thêm fullScreenIntent cho force update: Hiển thị full screen khi có cập nhật bắt buộc<\/strong><\/i><\/li><\/ol>",    "download_url": "https:\/\/github.com\/TXAVL\/TXAANDROID\/blob\/main\/releases\/TXAHUB_APP_20251114_011743.apk",    "force_update": true}
-=== End Log ===
-

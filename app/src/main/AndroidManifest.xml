@@ -32,6 +32,9 @@
     <!-- Quyền foreground service (Android 9+) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     
+    <!-- Quyền foreground service data sync (Android 14+) cho UpdateCheckService -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    
     <!-- Quyền full screen intent (Android 10+) để hiển thị notification ngay cả khi bật "Không làm phiền" -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
