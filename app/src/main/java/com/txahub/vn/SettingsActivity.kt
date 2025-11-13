@@ -31,14 +31,17 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var tvVersionInfo: TextView
     private lateinit var btnCheckUpdate: Button
     private lateinit var progressBar: ProgressBar
+    private lateinit var btnSpeedTest: Button
     private lateinit var btnOpenLogFile: Button
     private val logWriter = LogWriter(this)
+    private lateinit var speedTest: SpeedTest
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
         
         updateChecker = UpdateChecker(this)
+        speedTest = SpeedTest(this)
         
         setupViews()
         loadVersionInfo()
@@ -50,6 +53,7 @@ class SettingsActivity : AppCompatActivity() {
         tvVersionInfo = findViewById(R.id.tvVersionInfo)
         btnCheckUpdate = findViewById(R.id.btnCheckUpdate)
         progressBar = findViewById(R.id.progressBar)
+        btnSpeedTest = findViewById(R.id.btnSpeedTest)
         
         // Nút back
         findViewById<View>(R.id.btnBack).setOnClickListener {
@@ -59,6 +63,11 @@ class SettingsActivity : AppCompatActivity() {
         // Nút check update
         btnCheckUpdate.setOnClickListener {
             checkForUpdate()
+        }
+        
+        // Nút speedtest
+        btnSpeedTest.setOnClickListener {
+            runSpeedTest()
         }
         
         // Nút mở file log (chỉ hiện khi đã cấp quyền)
@@ -343,6 +352,63 @@ class SettingsActivity : AppCompatActivity() {
             }
             .setNegativeButton("Skip for now", null)
             .show()
+    }
+    
+    /**
+     * Chạy speedtest
+     */
+    private fun runSpeedTest() {
+        btnSpeedTest.isEnabled = false
+        progressBar.visibility = View.VISIBLE
+        
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Đang kiểm tra tốc độ mạng...")
+            .setMessage("Vui lòng đợi...")
+            .setCancelable(false)
+            .create()
+        
+        dialog.show()
+        
+        speedTest.runQuickSpeedTest(object : SpeedTest.SpeedTestCallback {
+            override fun onProgress(downloaded: Long, total: Long, speed: Double) {
+                runOnUiThread {
+                    val percent = if (total > 0) (downloaded * 100 / total) else 0
+                    dialog.setMessage("Đang tải: $percent%\nTốc độ: ${String.format("%.2f", speed)} Mbps")
+                }
+            }
+            
+            override fun onComplete(downloadSpeed: Double, uploadSpeed: Double, ping: Long) {
+                runOnUiThread {
+                    dialog.dismiss()
+                    
+                    val resultMessage = buildString {
+                        appendLine("Kết quả kiểm tra tốc độ mạng:")
+                        appendLine()
+                        appendLine("Ping: ${if (ping >= 0) "${ping}ms" else "N/A"}")
+                        appendLine("Download: ${String.format("%.2f", downloadSpeed)} Mbps")
+                        appendLine("Upload: ${String.format("%.2f", uploadSpeed)} Mbps")
+                    }
+                    
+                    AlertDialog.Builder(this@SettingsActivity)
+                        .setTitle("Kết quả SpeedTest")
+                        .setMessage(resultMessage)
+                        .setPositiveButton("OK", null)
+                        .show()
+                    
+                    btnSpeedTest.isEnabled = true
+                    progressBar.visibility = View.GONE
+                }
+            }
+            
+            override fun onError(message: String) {
+                runOnUiThread {
+                    dialog.dismiss()
+                    Toast.makeText(this@SettingsActivity, "Lỗi: $message", Toast.LENGTH_LONG).show()
+                    btnSpeedTest.isEnabled = true
+                    progressBar.visibility = View.GONE
+                }
+            }
+        })
     }
     
     private fun getDeviceName(): String {

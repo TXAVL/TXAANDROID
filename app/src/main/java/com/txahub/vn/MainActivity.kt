@@ -29,29 +29,45 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var drawerLayout: DrawerLayout
     private val WEB_URL = "https://txahub.click"
+    private lateinit var logWriter: LogWriter
+    private var networkMonitor: NetworkMonitor? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        logWriter = LogWriter(this)
+        logWriter.writeAppLog("MainActivity onCreate", "MainActivity", android.util.Log.INFO)
+        
         drawerLayout = findViewById(R.id.drawerLayout)
         webView = findViewById(R.id.webView)
         
-        setupSidebar()
-        setupWebView()
+        try {
+            setupSidebar()
+            setupWebView()
 
-        // Xử lý deep link
-        handleIntent(intent)
+            // Xử lý deep link
+            handleIntent(intent)
 
-        // Setup back button handler
-        setupBackButtonHandler()
+            // Setup back button handler
+            setupBackButtonHandler()
 
-        // Load trang web
-        webView.loadUrl(WEB_URL)
-        
-        // Start background update check service nếu có quyền tối ưu hóa pin
-        UpdateCheckService.startIfAllowed(this)
+            // Load trang web (nếu không có deep link)
+            if (intent?.action != Intent.ACTION_VIEW || intent.data?.scheme != "txahub") {
+                webView.loadUrl(WEB_URL)
+            }
+            
+            // Start network monitoring
+            networkMonitor = NetworkMonitor(this)
+            networkMonitor?.startMonitoring()
+            
+            // Start background update check service nếu có quyền tối ưu hóa pin
+            UpdateCheckService.startIfAllowed(this)
+        } catch (e: Exception) {
+            logWriter.writeAppLog("Error in onCreate: ${e.message}\n${e.stackTraceToString()}", "MainActivity", android.util.Log.ERROR)
+            throw e
+        }
     }
     
     private fun setupSidebar() {
@@ -221,34 +237,48 @@ class MainActivity : AppCompatActivity() {
     /**
      * Xử lý deep link txahub://
      * Chuyển đổi txahub://path thành https://txahub.click/path
+     * Ví dụ: txahub://dashboard -> https://txahub.click/dashboard
      */
     private fun handleDeepLink(url: String) {
         try {
             val uri = Uri.parse(url)
-            val path = uri.host ?: uri.path?.removePrefix("/") ?: ""
+            // Với txahub://dashboard, host = "dashboard", path = null
+            // Với txahub://verify-mail/abc123, host = "verify-mail", pathSegments = ["abc123"]
+            val host = uri.host ?: ""
+            val pathSegments = uri.pathSegments
+            
+            // Xây dựng full path
+            val fullPath = buildString {
+                if (host.isNotEmpty()) {
+                    append("/$host")
+                }
+                pathSegments.forEach { segment ->
+                    append("/$segment")
+                }
+            }
             
             // Xây dựng URL đích
             val targetUrl = when {
-                path.isEmpty() || path == "home" || path == "main" -> {
+                host.isEmpty() || host == "home" || host == "main" -> {
                     WEB_URL
                 }
                 else -> {
                     // Chuyển đổi txahub://path thành https://txahub.click/path
                     // Ví dụ: txahub://dashboard -> https://txahub.click/dashboard
                     // Ví dụ: txahub://verify-mail/abc123 -> https://txahub.click/verify-mail/abc123
-                    val fullPath = if (path.startsWith("/")) path else "/$path"
+                    val finalPath = if (fullPath.isEmpty()) "/$host" else fullPath
                     val queryString = uri.query?.let { "?$it" } ?: ""
                     val fragment = uri.fragment?.let { "#$it" } ?: ""
-                    "$WEB_URL$fullPath$queryString$fragment"
+                    "$WEB_URL$finalPath$queryString$fragment"
                 }
             }
             
+            logWriter.writeAppLog("Deep link: $url -> $targetUrl", "MainActivity", android.util.Log.INFO)
             webView.loadUrl(targetUrl)
-            Toast.makeText(this, "Đã mở: $targetUrl", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             e.printStackTrace()
+            logWriter.writeAppLog("Error handling deep link: ${e.message}\nURL: $url", "MainActivity", android.util.Log.ERROR)
             webView.loadUrl(WEB_URL)
-            Toast.makeText(this, "Lỗi khi xử lý deep link", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -279,6 +309,7 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            logWriter.writeAppLog("Error handling external link: ${e.message}\nURL: $url", "MainActivity", android.util.Log.ERROR)
             showExternalLinkError(url)
         }
     }
@@ -357,7 +388,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        webView.destroy()
+        try {
+            networkMonitor?.stopMonitoring()
+            webView.destroy()
+            logWriter.writeAppLog("MainActivity onDestroy", "MainActivity", android.util.Log.INFO)
+        } catch (e: Exception) {
+            logWriter.writeAppLog("Error in onDestroy: ${e.message}", "MainActivity", android.util.Log.ERROR)
+        }
         super.onDestroy()
     }
 

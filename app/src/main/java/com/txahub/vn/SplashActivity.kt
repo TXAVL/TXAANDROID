@@ -122,27 +122,38 @@ class SplashActivity : AppCompatActivity() {
     
     private fun showOptionalUpdateDialog(updateInfo: UpdateInfo) {
         runOnUiThread {
-            // Luôn hiển thị dialog để người dùng biết có bản cập nhật
-            // Lần sau khởi động lại vẫn hiện tiếp (không lưu trạng thái skip)
+            val prefs = getSharedPreferences("txahub_prefs", MODE_PRIVATE)
+            val skipKey = "skipped_update_version_${updateInfo.versionName}"
+            val isSkipped = prefs.getBoolean(skipKey, false)
+            
+            // Nếu đã skip version này rồi, không hiện dialog nữa
+            // Nhưng service nền vẫn sẽ thông báo qua notification
+            if (isSkipped) {
+                proceedToNextScreen()
+                return@runOnUiThread
+            }
             
             AlertDialog.Builder(this)
                 .setTitle("Có bản cập nhật mới")
-                .setMessage("Phiên bản ${updateInfo.versionName} đã có sẵn.\n\nNgày phát hành: ${updateInfo.releaseDate}\n\nBạn có muốn tải về không?")
+                .setMessage("Phiên bản ${updateInfo.versionName} đã có sẵn.\n\nNgày phát hành: ${updateInfo.releaseDate}\n\nBạn có muốn tải về không?Bấm vào sẽ mở link và tải thủ công!")
                 .setCancelable(true) // Cho phép đóng bằng nút back
                 .setPositiveButton("Tải ngay") { _, _ ->
                     // Mở trình duyệt đến link tải
                     val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(updateInfo.downloadUrl))
                     startActivity(intent)
-                    // Không lưu skip, lần sau vẫn hiện
+                    // Không lưu skip khi tải
                     proceedToNextScreen()
                 }
                 .setNegativeButton("Skip for now") { _, _ ->
-                    // Lưu trạng thái skip cho version này (chỉ tạm thời, lần sau vẫn hiện)
-                    // Thực ra không cần lưu vì yêu cầu là lần sau vẫn hiện
+                    // Lưu trạng thái skip cho version này
+                    // Lần sau khởi động lại sẽ không hiện dialog nữa
+                    // Nhưng service nền vẫn sẽ thông báo qua notification mỗi 5 phút
+                    prefs.edit().putBoolean(skipKey, true).apply()
                     proceedToNextScreen()
                 }
                 .setOnDismissListener {
-                    // Khi đóng dialog (bằng back button), tiếp tục như bình thường
+                    // Khi đóng dialog (bằng back button), không lưu skip
+                    // Lần sau vẫn hiện dialog
                     proceedToNextScreen()
                 }
                 .show()

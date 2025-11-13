@@ -2,6 +2,7 @@ package com.txahub.vn
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.util.Log
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -143,6 +144,7 @@ class UpdateChecker(private val context: Context) {
             } catch (e: Exception) {
                 e.printStackTrace()
                 logWriter.writeApiLog("Exception in getChangelogForVersion: ${e.message}", API_URL)
+                logWriter.writeAppLog("Exception in getChangelogForVersion: ${e.message}\n${e.stackTraceToString()}", "UpdateChecker", Log.ERROR)
                 callback(null)
             }
         }.start()
@@ -234,6 +236,7 @@ class UpdateChecker(private val context: Context) {
                 e.printStackTrace()
                 // Ghi log exception
                 logWriter.writeApiLog("Exception in checkUpdate: ${e.message}\nStack: ${e.stackTraceToString()}", API_URL)
+                logWriter.writeAppLog("Exception in checkUpdate: ${e.message}\n${e.stackTraceToString()}", "UpdateChecker", Log.ERROR)
                 callback(null) // Lỗi
             }
         }.start()

@@ -108,6 +108,17 @@
                 android:layout_marginTop="16dp"
                 android:visibility="gone" />
 
+            <!-- Nút SpeedTest -->
+            <Button
+                android:id="@+id/btnSpeedTest"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Kiểm tra tốc độ mạng"
+                android:textColor="@color/white"
+                android:backgroundTint="@color/txa_primary"
+                android:layout_marginTop="24dp"
+                android:padding="16dp" />
+
             <!-- Nút mở file log (chỉ hiện khi đã cấp quyền ghi file) -->
             <Button
                 android:id="@+id/btnOpenLogFile"

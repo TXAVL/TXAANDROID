@@ -14,8 +14,12 @@ class LogWriter(private val context: Context) {
     
     companion object {
         private const val LOG_FOLDER = "TXAAPP"
-        private const val LOG_FILE_PREFIX = "TXAAPP_api_"
+        private const val LOG_FILE_PREFIX_API = "TXAAPP_api_"
+        private const val LOG_FILE_PREFIX_APP = "TXAAPP_app_"
+        private const val LOG_FILE_PREFIX_CRASH = "TXAAPP_crash_"
         private const val LOG_FILE_EXTENSION = ".txa"
+        private const val MAX_LOG_FILE_SIZE = 5 * 1024 * 1024 // 5MB per file
+        private const val MAX_LOG_FILES = 20 // Giữ tối đa 20 file log
     }
     
     /**
@@ -58,7 +62,7 @@ class LogWriter(private val context: Context) {
             
             // Tạo tên file theo format: TXAAPP_api_(time hiện tại).txa
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-            val fileName = "${LOG_FILE_PREFIX}${timestamp}${LOG_FILE_EXTENSION}"
+            val fileName = "${LOG_FILE_PREFIX_API}${timestamp}${LOG_FILE_EXTENSION}"
             val logFile = File(logFolder, fileName)
             
             // Ghi log
@@ -107,7 +111,10 @@ class LogWriter(private val context: Context) {
             }
             
             val logFiles = logFolder.listFiles { file ->
-                file.isFile && file.name.startsWith(LOG_FILE_PREFIX) && file.name.endsWith(LOG_FILE_EXTENSION)
+                file.isFile && (file.name.startsWith(LOG_FILE_PREFIX_API) || 
+                               file.name.startsWith(LOG_FILE_PREFIX_APP) || 
+                               file.name.startsWith(LOG_FILE_PREFIX_CRASH)) && 
+                               file.name.endsWith(LOG_FILE_EXTENSION)
             }
             
             return logFiles?.maxByOrNull { it.lastModified() }
@@ -122,6 +129,121 @@ class LogWriter(private val context: Context) {
      */
     fun getLogFolderPath(): String {
         return getLogFolder().absolutePath
+    }
+    
+    /**
+     * Ghi log ứng dụng (exceptions, errors, info, warnings)
+     */
+    fun writeAppLog(message: String, tag: String = "APP", level: Int = android.util.Log.INFO) {
+        if (!hasWritePermission()) {
+            return
+        }
+        
+        try {
+            val logFolder = getLogFolder()
+            if (!logFolder.exists()) {
+                logFolder.mkdirs()
+            }
+            
+            // Tạo tên file theo format: TXAAPP_app_YYYYMMDD.txa (1 file mỗi ngày)
+            val dateFormat = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.getDefault())
+            val dateStr = dateFormat.format(java.util.Date())
+            val fileName = "${LOG_FILE_PREFIX_APP}${dateStr}${LOG_FILE_EXTENSION}"
+            val logFile = File(logFolder, fileName)
+            
+            // Kiểm tra kích thước file, nếu quá lớn thì tạo file mới
+            val actualFile = if (logFile.exists() && logFile.length() > MAX_LOG_FILE_SIZE) {
+                val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
+                File(logFolder, "${LOG_FILE_PREFIX_APP}${dateStr}_${timestamp}${LOG_FILE_EXTENSION}")
+            } else {
+                logFile
+            }
+            
+            val levelStr = when (level) {
+                android.util.Log.ERROR -> "ERROR"
+                android.util.Log.WARN -> "WARN"
+                android.util.Log.INFO -> "INFO"
+                android.util.Log.DEBUG -> "DEBUG"
+                android.util.Log.VERBOSE -> "VERBOSE"
+                else -> "UNKNOWN"
+            }
+            
+            FileWriter(actualFile, true).use { writer ->
+                writer.append("[$levelStr] ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", java.util.Locale.getDefault()).format(java.util.Date())} [$tag] $message\n")
+            }
+            
+            // Dọn dẹp file log cũ
+            cleanupOldLogFiles(logFolder)
+            
+        } catch (e: Exception) {
+            android.util.Log.e("LogWriter", "Failed to write app log", e)
+        }
+    }
+    
+    /**
+     * Ghi log crash riêng
+     */
+    fun writeCrashLog(crashInfo: String) {
+        if (!hasWritePermission()) {
+            return
+        }
+        
+        try {
+            val logFolder = getLogFolder()
+            if (!logFolder.exists()) {
+                logFolder.mkdirs()
+            }
+            
+            val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
+            val fileName = "${LOG_FILE_PREFIX_CRASH}${timestamp}${LOG_FILE_EXTENSION}"
+            val logFile = File(logFolder, fileName)
+            
+            FileWriter(logFile, true).use { writer ->
+                writer.append(crashInfo)
+                writer.append("\n\n")
+            }
+            
+        } catch (e: Exception) {
+            android.util.Log.e("LogWriter", "Failed to write crash log", e)
+        }
+    }
+    
+    /**
+     * Dọn dẹp file log cũ, chỉ giữ lại MAX_LOG_FILES file mới nhất
+     */
+    private fun cleanupOldLogFiles(logFolder: File) {
+        try {
+            val allLogFiles = logFolder.listFiles { file ->
+                file.isFile && file.name.endsWith(LOG_FILE_EXTENSION)
+            } ?: return
+            
+            if (allLogFiles.size > MAX_LOG_FILES) {
+                // Sắp xếp theo thời gian sửa đổi, xóa file cũ nhất
+                allLogFiles.sortBy { it.lastModified() }
+                val filesToDelete = allLogFiles.take(allLogFiles.size - MAX_LOG_FILES)
+                filesToDelete.forEach { it.delete() }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("LogWriter", "Failed to cleanup old log files", e)
+        }
+    }
+    
+    /**
+     * Lấy tất cả file log
+     */
+    fun getAllLogFiles(): List<File> {
+        return try {
+            val logFolder = getLogFolder()
+            if (!logFolder.exists() || !logFolder.isDirectory) {
+                return emptyList()
+            }
+            
+            logFolder.listFiles { file ->
+                file.isFile && file.name.endsWith(LOG_FILE_EXTENSION)
+            }?.sortedByDescending { it.lastModified() }?.toList() ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 }
 
