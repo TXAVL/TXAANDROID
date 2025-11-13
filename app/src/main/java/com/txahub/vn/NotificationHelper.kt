@@ -5,6 +5,9 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
@@ -97,11 +100,14 @@ class NotificationHelper(private val context: Context) {
         }
         
         // Lấy icon app để dùng làm large icon
-        val appIcon = try {
+        val appIconDrawable = try {
             context.packageManager.getApplicationIcon(context.packageName)
         } catch (e: Exception) {
             null
         }
+        
+        // Chuyển đổi Drawable thành Bitmap
+        val appIconBitmap = appIconDrawable?.let { drawableToBitmap(it) }
         
         val notificationBuilder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_notify_sync) // Icon mặc định
@@ -124,7 +130,7 @@ class NotificationHelper(private val context: Context) {
             )
         
         // Thêm large icon nếu có
-        appIcon?.let {
+        appIconBitmap?.let {
             notificationBuilder.setLargeIcon(it)
         }
         
@@ -137,6 +143,21 @@ class NotificationHelper(private val context: Context) {
      */
     fun cancelUpdateNotification() {
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID_UPDATE)
+    }
+    
+    /**
+     * Chuyển đổi Drawable thành Bitmap
+     */
+    private fun drawableToBitmap(drawable: Drawable): Bitmap {
+        val bitmap = Bitmap.createBitmap(
+            drawable.intrinsicWidth,
+            drawable.intrinsicHeight,
+            Bitmap.Config.ARGB_8888
+        )
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        return bitmap
     }
 }
 
