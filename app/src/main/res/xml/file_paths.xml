@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Cho phép truy cập file log trong thư mục external files -->
+    <external-files-path
+        name="log_files"
+        path="TXAAPP/" />
+    
+    <!-- Cho phép truy cập file log trong external storage (Android < 11) -->
+    <external-path
+        name="external_log_files"
+        path="TXAAPP/" />
+</paths>
+

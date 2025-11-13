@@ -115,9 +115,27 @@ class MainActivity : AppCompatActivity() {
         webSettings.displayZoomControls = false
 
         // User Agent - QUAN TRỌNG: Tạo chuỗi mới hoàn toàn TXAAPP_(tên thiết bị + hệ điều hành) để web nhận diện
+        // Bao gồm tên app, phiên bản app và phiên bản trình duyệt từ user agent gốc
         val deviceName = getDeviceName()
         val osVersion = "Android_${Build.VERSION.RELEASE}"
-        val customUserAgent = "TXAAPP_${deviceName}_${osVersion}"
+        
+        // Lấy user agent gốc từ WebView
+        val defaultUserAgent = webSettings.userAgentString ?: ""
+        
+        // Cắt chuỗi user agent gốc để lấy phiên bản trình duyệt (ví dụ: Mozilla/5.0, Chrome/120.0.0.0, Firefox/121.0)
+        val browserVersion = extractBrowserVersion(defaultUserAgent)
+        
+        // Lấy tên app và phiên bản app
+        val appName = "TXA Hub"
+        val appVersion = try {
+            val packageInfo = packageManager.getPackageInfo(packageName, 0)
+            packageInfo.versionName ?: "1.1_txa"
+        } catch (e: Exception) {
+            "1.1_txa"
+        }
+        
+        // Tạo user agent mới: TXAAPP_AppName/AppVersion DeviceName OSVersion BrowserVersion
+        val customUserAgent = "TXAAPP_${appName}/${appVersion} ${deviceName} ${osVersion} ${browserVersion}"
         webSettings.userAgentString = customUserAgent
 
         // Dark mode support (nếu có)
@@ -345,6 +363,53 @@ class MainActivity : AppCompatActivity() {
             .replace("{", "")
             .replace("}", "")
             .trim()
+    }
+    
+    /**
+     * Cắt chuỗi user agent gốc để lấy phiên bản trình duyệt
+     * Ví dụ: "Mozilla/5.0 ... Chrome/120.0.0.0 ..." -> "Chrome/120.0.0.0"
+     * Hoặc: "Mozilla/5.0 ... Firefox/121.0 ..." -> "Firefox/121.0"
+     */
+    private fun extractBrowserVersion(userAgent: String): String {
+        if (userAgent.isEmpty()) {
+            return "WebView"
+        }
+        
+        // Tìm các trình duyệt phổ biến
+        val browserPatterns = listOf(
+            "Chrome/([\\d.]+)",
+            "Firefox/([\\d.]+)",
+            "Safari/([\\d.]+)",
+            "Edge/([\\d.]+)",
+            "Opera/([\\d.]+)",
+            "Version/([\\d.]+).*Safari"
+        )
+        
+        for (pattern in browserPatterns) {
+            val regex = Regex(pattern, RegexOption.IGNORE_CASE)
+            val match = regex.find(userAgent)
+            if (match != null) {
+                val browserName = when {
+                    pattern.contains("Chrome") -> "Chrome"
+                    pattern.contains("Firefox") -> "Firefox"
+                    pattern.contains("Safari") && !pattern.contains("Version") -> "Safari"
+                    pattern.contains("Edge") -> "Edge"
+                    pattern.contains("Opera") -> "Opera"
+                    pattern.contains("Version") -> "Safari"
+                    else -> "Browser"
+                }
+                val version = match.groupValues[1]
+                return "$browserName/$version"
+            }
+        }
+        
+        // Nếu không tìm thấy, trả về phần đầu của user agent (Mozilla/5.0)
+        val mozillaMatch = Regex("Mozilla/([\\d.]+)").find(userAgent)
+        return if (mozillaMatch != null) {
+            "Mozilla/${mozillaMatch.groupValues[1]}"
+        } else {
+            "WebView"
+        }
     }
 
     /**

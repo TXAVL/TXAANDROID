@@ -21,6 +21,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import java.io.File
 
 class SettingsActivity : AppCompatActivity() {
     
@@ -29,6 +31,8 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var tvVersionInfo: TextView
     private lateinit var btnCheckUpdate: Button
     private lateinit var progressBar: ProgressBar
+    private lateinit var btnOpenLogFile: Button
+    private val logWriter = LogWriter(this)
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,13 +60,87 @@ class SettingsActivity : AppCompatActivity() {
         btnCheckUpdate.setOnClickListener {
             checkForUpdate()
         }
+        
+        // Nút mở file log (chỉ hiện khi đã cấp quyền)
+        btnOpenLogFile = findViewById(R.id.btnOpenLogFile)
+        updateLogFileButtonVisibility()
+        btnOpenLogFile.setOnClickListener {
+            openLogFile()
+        }
+    }
+    
+    /**
+     * Cập nhật hiển thị nút mở file log (chỉ hiện khi đã cấp quyền)
+     */
+    private fun updateLogFileButtonVisibility() {
+        val hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            android.os.Environment.isExternalStorageManager()
+        } else {
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+        
+        btnOpenLogFile.visibility = if (hasPermission) View.VISIBLE else View.GONE
+    }
+    
+    /**
+     * Mở file log mới nhất bằng text editor mặc định
+     */
+    private fun openLogFile() {
+        try {
+            val logFile = logWriter.getLatestLogFile()
+            if (logFile == null || !logFile.exists()) {
+                Toast.makeText(this, "Không tìm thấy file log", Toast.LENGTH_SHORT).show()
+                return
+            }
+            
+            // Tạo URI để mở file
+            val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                // Android 7.0+ cần sử dụng FileProvider
+                FileProvider.getUriForFile(
+                    this,
+                    "${packageName}.fileprovider",
+                    logFile
+                )
+            } else {
+                // Android < 7.0
+                Uri.fromFile(logFile)
+            }
+            
+            // Mở file bằng text editor mặc định
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "text/plain")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            
+            if (intent.resolveActivity(packageManager) != null) {
+                startActivity(intent)
+                Toast.makeText(this, "Đã mở file log: ${logFile.name}", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Không tìm thấy ứng dụng để mở file log", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(this, "Lỗi khi mở file log: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
     
     private fun loadVersionInfo() {
         try {
             val packageInfo = packageManager.getPackageInfo(packageName, 0)
             val versionName = packageInfo.versionName ?: "1.1_txa"
-            val versionCode = packageInfo.longVersionCode
+            val versionCode = try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    packageInfo.longVersionCode
+                } else {
+                    @Suppress("DEPRECATION")
+                    packageInfo.versionCode.toLong()
+                }
+            } catch (e: Exception) {
+                1L
+            }
             
             val deviceName = getDeviceName()
             val osVersion = "Android ${Build.VERSION.RELEASE}"
@@ -82,14 +160,21 @@ class SettingsActivity : AppCompatActivity() {
             
             tvVersionInfo.text = info
         } catch (e: Exception) {
+            e.printStackTrace()
             tvVersionInfo.text = "Không thể lấy thông tin phiên bản"
         }
     }
     
     private fun loadPermissions() {
-        layoutPermissions.removeAllViews()
-        
-        val permissions = listOf(
+        try {
+            // Kiểm tra xem view đã được khởi tạo chưa
+            if (!::layoutPermissions.isInitialized) {
+                return
+            }
+            
+            layoutPermissions.removeAllViews()
+            
+            val permissions = listOf(
             PermissionItem(
                 name = "notification",
                 displayName = "Thông báo",
@@ -159,6 +244,11 @@ class SettingsActivity : AppCompatActivity() {
             }
             
             layoutPermissions.addView(itemView)
+        }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // Hiển thị thông báo lỗi nếu có
+            Toast.makeText(this, "Lỗi khi tải danh sách quyền: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -281,7 +371,17 @@ class SettingsActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         // Cập nhật lại trạng thái quyền khi quay lại
-        loadPermissions()
+        try {
+            if (::layoutPermissions.isInitialized) {
+                loadPermissions()
+            }
+            // Cập nhật hiển thị nút mở file log
+            if (::btnOpenLogFile.isInitialized) {
+                updateLogFileButtonVisibility()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }
 

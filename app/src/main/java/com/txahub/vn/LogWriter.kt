@@ -86,7 +86,7 @@ class LogWriter(private val context: Context) {
     /**
      * Lấy folder log
      */
-    private fun getLogFolder(): File {
+    fun getLogFolder(): File {
         return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
             // Android 11+ sử dụng app-specific directory
             File(context.getExternalFilesDir(null), LOG_FOLDER)
@@ -94,6 +94,51 @@ class LogWriter(private val context: Context) {
             // Android 10 trở xuống
             File(Environment.getExternalStorageDirectory(), LOG_FOLDER)
         }
+    }
+    
+    /**
+     * Lấy file log mới nhất
+     */
+    fun getLatestLogFile(): File? {
+<<<<<<< Current (Your changes)
+        val logFolder = getLogFolder()
+        if (!logFolder.exists() || !logFolder.isDirectory) {
+            return null
+        }
+        
+        val logFiles = logFolder.listFiles { file ->
+            file.isFile && file.name.startsWith(LOG_FILE_PREFIX) && file.name.endsWith(LOG_FILE_EXTENSION)
+        }
+        
+        return logFiles?.maxByOrNull { it.lastModified() }
+    }
+    
+    /**
+     * Lấy đường dẫn folder log để hiển thị cho người dùng
+=======
+        try {
+            val logFolder = getLogFolder()
+            if (!logFolder.exists() || !logFolder.isDirectory) {
+                return null
+            }
+            
+            val logFiles = logFolder.listFiles { file ->
+                file.isFile && file.name.startsWith(LOG_FILE_PREFIX) && file.name.endsWith(LOG_FILE_EXTENSION)
+            }
+            
+            return logFiles?.maxByOrNull { it.lastModified() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return null
+        }
+    }
+    
+    /**
+     * Lấy đường dẫn đầy đủ của folder log (để hiển thị cho người dùng)
+>>>>>>> Incoming (Background Agent changes)
+     */
+    fun getLogFolderPath(): String {
+        return getLogFolder().absolutePath
     }
 }
 

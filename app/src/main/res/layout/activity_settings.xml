@@ -108,6 +108,22 @@
                 android:layout_marginTop="16dp"
                 android:visibility="gone" />
 
+<<<<<<< Current (Your changes)
+            <!-- Nút mở file log (chỉ hiện khi đã cấp quyền ghi file) -->
+=======
+            <!-- Nút mở file log (chỉ hiện khi đã cấp quyền) -->
+>>>>>>> Incoming (Background Agent changes)
+            <Button
+                android:id="@+id/btnOpenLogFile"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Mở file log"
+                android:textColor="@color/white"
+                android:backgroundTint="@color/txa_primary"
+                android:layout_marginTop="24dp"
+                android:padding="16dp"
+                android:visibility="gone" />
+
         </LinearLayout>
 
     </ScrollView>
