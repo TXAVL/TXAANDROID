@@ -284,34 +284,57 @@ class UpdateChecker(private val context: Context) {
                 }
                 reader.close()
                 
-                val responseString = response.toString()
+                val responseString = response.toString().trim()
+                
+                // Log chi tiết response
+                logWriter.writeApiLog("=== GET ALL CHANGELOGS ===\nURL: $API_URL_ALL_CHANGELOGS\nResponse Code: $responseCode\nResponse Length: ${responseString.length}\nResponse: $responseString", API_URL_ALL_CHANGELOGS)
                 
                 if (responseCode == HttpURLConnection.HTTP_OK) {
-                    // Ghi log success response
-                    logWriter.writeApiLog(responseString, API_URL_ALL_CHANGELOGS)
-                    
                     try {
+                        // Kiểm tra response rỗng
+                        if (responseString.isBlank() || responseString.isEmpty()) {
+                            logWriter.writeApiLog("ERROR: Response is empty or blank", API_URL_ALL_CHANGELOGS)
+                            callback(emptyList())
+                            connection.disconnect()
+                            return@Thread
+                        }
+                        
                         val jsonArray = org.json.JSONArray(responseString)
                         val changelogs = mutableListOf<VersionChangelog>()
                         
+                        logWriter.writeAppLog("Parsing changelogs: Found ${jsonArray.length()} items", "UpdateChecker", android.util.Log.INFO)
+                        
                         for (i in 0 until jsonArray.length()) {
-                            val json = jsonArray.getJSONObject(i)
-                            val versionChangelog = VersionChangelog(
-                                versionName = json.getString("version_name"),
-                                versionCode = json.getInt("version_code"),
-                                releaseDate = json.getString("release_date"),
-                                changelog = json.optString("changelog", "")
-                            )
-                            changelogs.add(versionChangelog)
+                            try {
+                                val json = jsonArray.getJSONObject(i)
+                                val versionName = json.optString("version_name", "")
+                                val versionCode = json.optInt("version_code", 0)
+                                val releaseDate = json.optString("release_date", "")
+                                val changelog = json.optString("changelog", "").trim()
+                                
+                                logWriter.writeAppLog("Changelog item $i: version=$versionName, code=$versionCode, changelog_length=${changelog.length}", "UpdateChecker", android.util.Log.DEBUG)
+                                
+                                val versionChangelog = VersionChangelog(
+                                    versionName = versionName,
+                                    versionCode = versionCode,
+                                    releaseDate = releaseDate,
+                                    changelog = changelog
+                                )
+                                changelogs.add(versionChangelog)
+                            } catch (e: Exception) {
+                                logWriter.writeAppLog("Error parsing changelog item $i: ${e.message}", "UpdateChecker", android.util.Log.ERROR)
+                            }
                         }
                         
                         // Sắp xếp theo version_code giảm dần (mới nhất trước)
                         changelogs.sortByDescending { it.versionCode }
                         
+                        logWriter.writeAppLog("Successfully parsed ${changelogs.size} changelogs", "UpdateChecker", android.util.Log.INFO)
                         callback(changelogs)
                     } catch (e: Exception) {
                         // JSON parsing error
-                        logWriter.writeApiLog("JSON Parse Error: ${e.message}\nResponse: $responseString", API_URL_ALL_CHANGELOGS)
+                        logWriter.writeApiLog("JSON Parse Error: ${e.message}\nStack: ${e.stackTraceToString()}\nResponse: $responseString", API_URL_ALL_CHANGELOGS)
+                        logWriter.writeAppLog("JSON Parse Error in getAllChangelogs: ${e.message}\n${e.stackTraceToString()}", "UpdateChecker", android.util.Log.ERROR)
                         callback(emptyList())
                     }
                 } else {

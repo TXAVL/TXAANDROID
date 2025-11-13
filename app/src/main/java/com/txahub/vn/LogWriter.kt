@@ -177,6 +177,28 @@ class LogWriter(private val context: Context) {
     }
     
     /**
+     * Lấy file log API mới nhất
+     */
+    fun getLatestApiLogFile(): File? {
+        return try {
+            val logFolder = getLogFolder()
+            if (!logFolder.exists() || !logFolder.isDirectory) {
+                return null
+            }
+            
+            val logFiles = logFolder.listFiles { file ->
+                file.isFile && file.name.startsWith(LOG_FILE_PREFIX_API) && 
+                               file.name.endsWith(LOG_FILE_EXTENSION)
+            }
+            
+            logFiles?.maxByOrNull { it.lastModified() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+    
+    /**
      * Lấy đường dẫn đầy đủ của folder log (để hiển thị cho người dùng)
      */
     fun getLogFolderPath(): String {

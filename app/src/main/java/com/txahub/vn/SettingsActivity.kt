@@ -101,10 +101,11 @@ class SettingsActivity : AppCompatActivity() {
         // Hỏi người dùng muốn mở loại log nào
         AlertDialog.Builder(this)
             .setTitle("Chọn loại log")
-            .setItems(arrayOf("App Log", "Crash Log")) { _, which ->
+            .setItems(arrayOf("App Log", "Crash Log", "API Log")) { _, which ->
                 when (which) {
                     0 -> showLogViewer("app")
                     1 -> showLogViewer("crash")
+                    2 -> showLogViewer("api")
                 }
             }
             .setNegativeButton("Hủy", null)
@@ -123,21 +124,23 @@ class SettingsActivity : AppCompatActivity() {
             }
             
             // Tìm file log theo loại
-            val logFiles = logFolder.listFiles { file ->
-                file.isFile && when (logType) {
-                    "app" -> file.name.startsWith("TXAAPP_app_") && file.name.endsWith(".txa")
-                    "crash" -> file.name.startsWith("TXAAPP_crash_") && file.name.endsWith(".txa")
-                    else -> false
-                }
-            }?.sortedByDescending { it.lastModified() } ?: emptyList()
-            
-            if (logFiles.isEmpty()) {
-                Toast.makeText(this, "Không tìm thấy file log ${if (logType == "app") "ứng dụng" else "crash"}", Toast.LENGTH_SHORT).show()
-                return
+            val logFile = when (logType) {
+                "app" -> logWriter.getLatestAppLogFile()
+                "crash" -> logWriter.getLatestCrashLogFile()
+                "api" -> logWriter.getLatestApiLogFile()
+                else -> null
             }
             
-            // Lấy file mới nhất
-            val logFile = logFiles.first()
+            if (logFile == null || !logFile.exists()) {
+                val logTypeName = when (logType) {
+                    "app" -> "ứng dụng"
+                    "crash" -> "crash"
+                    "api" -> "API"
+                    else -> ""
+                }
+                Toast.makeText(this, "Không tìm thấy file log $logTypeName", Toast.LENGTH_SHORT).show()
+                return
+            }
             
             // Đọc nội dung file
             val content = logFile.readText()
