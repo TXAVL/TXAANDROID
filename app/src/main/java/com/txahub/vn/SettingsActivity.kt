@@ -100,7 +100,7 @@ class SettingsActivity : AppCompatActivity() {
                             Manifest.permission.POST_NOTIFICATIONS
                         ) == PackageManager.PERMISSION_GRANTED
                     } else {
-                        android.app.NotificationManagerCompat.from(this).areNotificationsEnabled()
+                        NotificationManagerCompat.from(this).areNotificationsEnabled()
                     }
                 },
                 settingsAction = Settings.ACTION_APP_NOTIFICATION_SETTINGS

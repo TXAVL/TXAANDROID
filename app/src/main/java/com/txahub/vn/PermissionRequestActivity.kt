@@ -74,7 +74,7 @@ class PermissionRequestActivity : AppCompatActivity() {
                         ) == PackageManager.PERMISSION_GRANTED
                     } else {
                         // Android < 13
-                        android.app.NotificationManagerCompat.from(this).areNotificationsEnabled()
+                        NotificationManagerCompat.from(this).areNotificationsEnabled()
                     }
                 }
             )

@@ -53,7 +53,7 @@ class SplashActivity : AppCompatActivity() {
             android.content.pm.PackageManager.PERMISSION_GRANTED == 
                 checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
         } else {
-            android.app.NotificationManagerCompat.from(this).areNotificationsEnabled()
+            NotificationManagerCompat.from(this).areNotificationsEnabled()
         }
     }
     
