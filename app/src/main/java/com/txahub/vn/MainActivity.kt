@@ -17,6 +17,7 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -32,6 +33,33 @@ class MainActivity : AppCompatActivity() {
     private lateinit var logWriter: LogWriter
     private var networkMonitor: NetworkMonitor? = null
     private var filePathCallback: android.webkit.ValueCallback<Array<Uri>>? = null
+    
+    // Activity Result Launcher cho file picker của WebView
+    private val filePickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (filePathCallback != null) {
+            val results = if (result.resultCode == RESULT_OK && result.data != null) {
+                val data = result.data!!
+                if (data.clipData != null) {
+                    // Multiple files
+                    val count = data.clipData!!.itemCount
+                    val resultsArray = arrayOfNulls<Uri>(count)
+                    for (i in 0 until count) {
+                        resultsArray[i] = data.clipData!!.getItemAt(i).uri
+                    }
+                    resultsArray.filterNotNull().toTypedArray()
+                } else if (data.data != null) {
+                    // Single file
+                    arrayOf(data.data!!)
+                } else {
+                    null
+                }
+            } else {
+                null
+            }
+            filePathCallback?.onReceiveValue(results)
+            filePathCallback = null
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -290,7 +318,7 @@ class MainActivity : AppCompatActivity() {
                 // Mở file picker
                 val intent = fileChooserParams?.createIntent()
                 if (intent != null) {
-                    startActivityForResult(intent, 2001)
+                    filePickerLauncher.launch(intent)
                 }
                 return true
             }
@@ -438,23 +466,6 @@ class MainActivity : AppCompatActivity() {
         handleIntent(intent)
     }
     
-    @Deprecated("Deprecated in Java")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        
-        // Xử lý file picker từ WebView
-        if (requestCode == 2001) {
-            if (filePathCallback != null) {
-                val results = if (resultCode == RESULT_OK && data != null) {
-                    arrayOf(data.data ?: return)
-                } else {
-                    null
-                }
-                filePathCallback?.onReceiveValue(results)
-                filePathCallback = null
-            }
-        }
-    }
 
     /**
      * Setup xử lý nút back

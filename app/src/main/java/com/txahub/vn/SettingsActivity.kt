@@ -19,6 +19,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -41,10 +42,22 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var soundManager: NotificationSoundManager
     private lateinit var audioTrimmer: AudioTrimmer
     private lateinit var logSettingsManager: LogSettingsManager
-    private val REQUEST_CODE_PICK_SOUND = 3001
-    private val REQUEST_CODE_PICK_SOUND_FOR_DEFAULT = 3002
     private var selectedSoundUri: Uri? = null
     private var isPickingForDefault = false
+    
+    // Activity Result Launchers thay thế startActivityForResult
+    private val pickSoundLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val uri = result.data?.data
+            if (uri != null) {
+                if (isPickingForDefault) {
+                    handleSoundFileForDefault(uri)
+                } else {
+                    handleSoundFile(uri)
+                }
+            }
+        }
+    }
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -824,7 +837,7 @@ class SettingsActivity : AppCompatActivity() {
         }
         
         try {
-            startActivityForResult(intent, REQUEST_CODE_PICK_SOUND_FOR_DEFAULT)
+            pickSoundLauncher.launch(intent)
         } catch (e: Exception) {
             Toast.makeText(this, "Không thể mở file picker: ${e.message}", Toast.LENGTH_SHORT).show()
         }
@@ -866,79 +879,77 @@ class SettingsActivity : AppCompatActivity() {
         }
         
         try {
-            startActivityForResult(intent, REQUEST_CODE_PICK_SOUND)
+            pickSoundLauncher.launch(intent)
         } catch (e: Exception) {
             Toast.makeText(this, "Không thể mở file picker: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
     
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
+    /**
+     * Xử lý file nhạc đã chọn (cho custom sound)
+     */
+    private fun handleSoundFile(uri: Uri) {
+        // Validate file
+        val (isValid, errorMessage, durationMs) = soundManager.validateSoundFile(uri)
         
-        if (requestCode == REQUEST_CODE_PICK_SOUND && resultCode == RESULT_OK) {
-            val uri = data?.data
-            if (uri != null) {
-                // Validate file
-                val (isValid, errorMessage, durationMs) = soundManager.validateSoundFile(uri)
-                
-                if (!isValid) {
-                    AlertDialog.Builder(this)
-                        .setTitle("File không hợp lệ")
-                        .setMessage(errorMessage)
-                        .setPositiveButton("OK", null)
-                        .show()
-                    return
-                }
-                
-                // Kiểm tra nếu file quá dài, toast thông báo rồi hiển thị dialog cắt nhạc
-                if (durationMs > NotificationSoundManager.MAX_SOUND_DURATION_MS) {
-                    val durationSeconds = durationMs / 1000.0
-                    val maxDurationSeconds = NotificationSoundManager.MAX_SOUND_DURATION_MS / 1000.0
-                    Toast.makeText(
-                        this,
-                        "File có thời lượng ${String.format("%.1f", durationSeconds)} giây, vượt quá ${String.format("%.1f", maxDurationSeconds)} giây. Vui lòng cắt nhạc.",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    selectedSoundUri = uri
-                    isPickingForDefault = false
-                    showAudioTrimDialog(uri, durationMs)
-                } else {
-                    // File hợp lệ, lưu trực tiếp
-                    saveSoundFile(uri)
-                }
-            }
-        } else if (requestCode == REQUEST_CODE_PICK_SOUND_FOR_DEFAULT && resultCode == RESULT_OK) {
-            val uri = data?.data
-            if (uri != null) {
-                // Validate file
-                val (isValid, errorMessage, durationMs) = soundManager.validateSoundFile(uri)
-                
-                if (!isValid) {
-                    AlertDialog.Builder(this)
-                        .setTitle("File không hợp lệ")
-                        .setMessage(errorMessage)
-                        .setPositiveButton("OK", null)
-                        .show()
-                    return
-                }
-                
-                // Kiểm tra nếu file quá dài, toast thông báo rồi hiển thị dialog cắt nhạc
-                if (durationMs > NotificationSoundManager.MAX_SOUND_DURATION_MS) {
-                    val durationSeconds = durationMs / 1000.0
-                    val maxDurationSeconds = NotificationSoundManager.MAX_SOUND_DURATION_MS / 1000.0
-                    Toast.makeText(
-                        this,
-                        "File có thời lượng ${String.format("%.1f", durationSeconds)} giây, vượt quá ${String.format("%.1f", maxDurationSeconds)} giây. Vui lòng cắt nhạc.",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    selectedSoundUri = uri
-                    isPickingForDefault = true
-                    showAudioTrimDialog(uri, durationMs)
-                } else {
-                    // File hợp lệ, lưu vào folder default
-                    saveSoundFileForDefault(uri)
-                }
-            }
+        if (!isValid) {
+            AlertDialog.Builder(this)
+                .setTitle("File không hợp lệ")
+                .setMessage(errorMessage)
+                .setPositiveButton("OK", null)
+                .show()
+            return
+        }
+        
+        // Kiểm tra nếu file quá dài, toast thông báo rồi hiển thị dialog cắt nhạc
+        if (durationMs > NotificationSoundManager.MAX_SOUND_DURATION_MS) {
+            val durationSeconds = durationMs / 1000.0
+            val maxDurationSeconds = NotificationSoundManager.MAX_SOUND_DURATION_MS / 1000.0
+            Toast.makeText(
+                this,
+                "File có thời lượng ${String.format("%.1f", durationSeconds)} giây, vượt quá ${String.format("%.1f", maxDurationSeconds)} giây. Vui lòng cắt nhạc.",
+                Toast.LENGTH_LONG
+            ).show()
+            selectedSoundUri = uri
+            isPickingForDefault = false
+            showAudioTrimDialog(uri, durationMs)
+        } else {
+            // File hợp lệ, lưu trực tiếp
+            saveSoundFile(uri)
+        }
+    }
+    
+    /**
+     * Xử lý file nhạc đã chọn (cho default sound)
+     */
+    private fun handleSoundFileForDefault(uri: Uri) {
+        // Validate file
+        val (isValid, errorMessage, durationMs) = soundManager.validateSoundFile(uri)
+        
+        if (!isValid) {
+            AlertDialog.Builder(this)
+                .setTitle("File không hợp lệ")
+                .setMessage(errorMessage)
+                .setPositiveButton("OK", null)
+                .show()
+            return
+        }
+        
+        // Kiểm tra nếu file quá dài, toast thông báo rồi hiển thị dialog cắt nhạc
+        if (durationMs > NotificationSoundManager.MAX_SOUND_DURATION_MS) {
+            val durationSeconds = durationMs / 1000.0
+            val maxDurationSeconds = NotificationSoundManager.MAX_SOUND_DURATION_MS / 1000.0
+            Toast.makeText(
+                this,
+                "File có thời lượng ${String.format("%.1f", durationSeconds)} giây, vượt quá ${String.format("%.1f", maxDurationSeconds)} giây. Vui lòng cắt nhạc.",
+                Toast.LENGTH_LONG
+            ).show()
+            selectedSoundUri = uri
+            isPickingForDefault = true
+            showAudioTrimDialog(uri, durationMs)
+        } else {
+            // File hợp lệ, lưu vào folder default
+            saveSoundFileForDefault(uri)
         }
     }
     
