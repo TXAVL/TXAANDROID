@@ -31,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     private val WEB_URL = "https://txahub.click"
     private lateinit var logWriter: LogWriter
     private var networkMonitor: NetworkMonitor? = null
+    private var filePathCallback: android.webkit.ValueCallback<Array<Uri>>? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {

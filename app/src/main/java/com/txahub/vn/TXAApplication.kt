@@ -86,13 +86,13 @@ class TXAApplication : Application() {
      */
     private fun initializeDefaultNotificationSound() {
         try {
-            // Lấy resource ID của file chuoog.mp3 trong res/raw/
-            val resourceId = resources.getIdentifier("chuoog", "raw", packageName)
+            // Lấy resource ID của file chuong.mp3 trong res/raw/
+            val resourceId = resources.getIdentifier("chuong", "raw", packageName)
             if (resourceId != 0) {
                 val soundManager = NotificationSoundManager(this)
-                soundManager.initializeDefaultAppSound(resourceId, "chuoog.mp3")
+                soundManager.initializeDefaultAppSound(resourceId, "chuong.mp3")
             } else {
-                Log.w("TXAApplication", "Default sound file chuoog.mp3 not found in res/raw/")
+                Log.w("TXAApplication", "Default sound file chuong.mp3 not found in res/raw/")
             }
         } catch (e: Exception) {
             Log.e("TXAApplication", "Error initializing default notification sound", e)

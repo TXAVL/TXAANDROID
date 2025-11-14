@@ -9,6 +9,8 @@ import android.provider.Settings
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.text.Normalizer
+import java.util.regex.Pattern
 
 class NotificationSoundManager(private val context: Context) {
     
@@ -31,6 +33,24 @@ class NotificationSoundManager(private val context: Context) {
     }
     
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    
+    /**
+     * Chuyển đổi chuỗi có dấu sang không dấu (a-z, 0-9, A-Z)
+     * Ví dụ: "chuông.mp3" -> "chuong.mp3", "nhạc êm dịu.mp3" -> "nhac_em_diu.mp3"
+     */
+    private fun removeVietnameseAccents(text: String): String {
+        // Chuyển đổi Unicode NFD (Normalization Form Decomposed)
+        val normalized = Normalizer.normalize(text, Normalizer.Form.NFD)
+        // Loại bỏ các ký tự dấu (diacritical marks)
+        val pattern = Pattern.compile("\\p{InCombiningDiacriticalMarks}+")
+        val withoutAccents = pattern.matcher(normalized).replaceAll("")
+        // Thay thế khoảng trắng và ký tự đặc biệt bằng dấu gạch dưới
+        return withoutAccents
+            .replace(" ", "_")
+            .replace("[^a-zA-Z0-9._]".toRegex(), "_")
+            .replace("_{2,}".toRegex(), "_") // Loại bỏ nhiều dấu gạch dưới liên tiếp
+            .trim('_')
+    }
     
     /**
      * Lấy loại nhạc chuông hiện tại
@@ -57,8 +77,12 @@ class NotificationSoundManager(private val context: Context) {
     /**
      * Lưu URI của custom sound
      */
-    fun setCustomSoundUri(uri: Uri) {
-        prefs.edit().putString(KEY_CUSTOM_SOUND_URI, uri.toString()).apply()
+    fun setCustomSoundUri(uri: Uri?) {
+        if (uri != null) {
+            prefs.edit().putString(KEY_CUSTOM_SOUND_URI, uri.toString()).apply()
+        } else {
+            prefs.edit().remove(KEY_CUSTOM_SOUND_URI).apply()
+        }
     }
     
     /**
@@ -78,15 +102,20 @@ class NotificationSoundManager(private val context: Context) {
     
     /**
      * Lấy URI của sound mặc định app (nếu đã set)
-     * Nếu có nhiều file trong folder, random chọn 1 file
+     * Đọc tất cả file .mp3 và .wav trong folder notification_sounds
+     * Nếu có nhiều file, random chọn 1 file mỗi lần gọi
+     * Hỗ trợ file có tên có dấu (tự động chuyển sang không dấu khi copy từ raw resource)
+     * 
+     * Lưu ý: File được lưu trong external storage để có thể truy cập từ máy tính khi cắm cáp USB
      */
     fun getDefaultAppSoundUri(): Uri? {
-        val soundFolder = File(context.filesDir, SOUND_FOLDER)
+        val baseDir = context.getExternalFilesDir(null) ?: context.filesDir // Fallback về internal nếu external không khả dụng
+        val soundFolder = File(baseDir, SOUND_FOLDER)
         if (!soundFolder.exists() || !soundFolder.isDirectory) {
             return null
         }
         
-        // Lấy tất cả file trong folder
+        // Lấy tất cả file .mp3 và .wav trong folder (kể cả file có tên có dấu)
         val soundFiles = soundFolder.listFiles { _, name ->
             name.endsWith(".mp3", ignoreCase = true) || name.endsWith(".wav", ignoreCase = true)
         }?.filter { it.isFile } ?: emptyList()
@@ -122,7 +151,8 @@ class NotificationSoundManager(private val context: Context) {
     fun getSoundDisplayName(): String {
         return when (getSoundType()) {
             "default" -> {
-                val soundFolder = File(context.filesDir, SOUND_FOLDER)
+                val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
+                val soundFolder = File(baseDir, SOUND_FOLDER)
                 val soundFiles = soundFolder.listFiles { _, name ->
                     name.endsWith(".mp3", ignoreCase = true) || name.endsWith(".wav", ignoreCase = true)
                 }?.filter { it.isFile } ?: emptyList()
@@ -209,11 +239,13 @@ class NotificationSoundManager(private val context: Context) {
     }
     
     /**
-     * Copy file nhạc chuông tùy chỉnh vào internal storage của app (folder riêng)
+     * Copy file nhạc chuông tùy chỉnh vào external storage của app (folder riêng)
+     * Có thể truy cập từ máy tính khi cắm cáp USB tại: Android/data/com.txahub.vn.app/files/notification_sounds_custom/
      */
     fun copySoundToInternalStorage(uri: Uri): Uri? {
         return try {
-            val soundFolder = File(context.filesDir, CUSTOM_SOUND_FOLDER)
+            val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
+            val soundFolder = File(baseDir, CUSTOM_SOUND_FOLDER)
             if (!soundFolder.exists()) {
                 soundFolder.mkdirs()
             }
@@ -247,19 +279,24 @@ class NotificationSoundManager(private val context: Context) {
     }
     
     /**
-     * Copy file nhạc chuông từ raw resource vào internal storage
-     * @param rawResourceId ID của file trong res/raw/ (ví dụ: R.raw.chuoog)
-     * @param fileName Tên file khi lưu vào internal storage
+     * Copy file nhạc chuông từ raw resource vào external storage
+     * @param rawResourceId ID của file trong res/raw/ (ví dụ: R.raw.chuong)
+     * @param fileName Tên file khi lưu vào external storage (tự động chuyển có dấu sang không dấu)
      * @return URI của file đã copy hoặc null nếu lỗi
+     * 
+     * Lưu ý: File được lưu trong external storage để có thể truy cập từ máy tính khi cắm cáp USB
      */
     fun copyRawSoundToInternalStorage(rawResourceId: Int, fileName: String): Uri? {
         return try {
-            val soundFolder = File(context.filesDir, SOUND_FOLDER)
+            val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
+            val soundFolder = File(baseDir, SOUND_FOLDER)
             if (!soundFolder.exists()) {
                 soundFolder.mkdirs()
             }
             
-            val destFile = File(soundFolder, fileName)
+            // Tự động chuyển đổi tên file có dấu sang không dấu
+            val normalizedFileName = removeVietnameseAccents(fileName)
+            val destFile = File(soundFolder, normalizedFileName)
             
             // Nếu file đã tồn tại, không copy lại
             if (destFile.exists()) {
@@ -286,10 +323,12 @@ class NotificationSoundManager(private val context: Context) {
     
     /**
      * Copy file nhạc chuông vào folder default của app (không phải custom)
+     * Lưu trong external storage để có thể truy cập từ máy tính khi cắm cáp USB
      */
     fun copySoundToDefaultFolder(uri: Uri): Uri? {
         return try {
-            val soundFolder = File(context.filesDir, SOUND_FOLDER)
+            val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
+            val soundFolder = File(baseDir, SOUND_FOLDER)
             if (!soundFolder.exists()) {
                 soundFolder.mkdirs()
             }
@@ -327,7 +366,8 @@ class NotificationSoundManager(private val context: Context) {
      */
     fun clearDefaultAppSounds() {
         try {
-            val soundFolder = File(context.filesDir, SOUND_FOLDER)
+            val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
+            val soundFolder = File(baseDir, SOUND_FOLDER)
             if (soundFolder.exists() && soundFolder.isDirectory) {
                 soundFolder.listFiles()?.forEach { it.delete() }
             }
@@ -338,10 +378,18 @@ class NotificationSoundManager(private val context: Context) {
     
     /**
      * Khởi tạo sound mặc định của app từ raw resource (chỉ chạy lần đầu)
+     * 
+     * Lưu ý: Để thêm nhiều file cho random, đặt file trong res/raw/ với tên hợp lệ:
+     * - Chỉ chứa a-z, 0-9, A-Z, dấu gạch dưới (ví dụ: chuong.mp3, sound1.mp3, nhac_em_diu.mp3)
+     * - Nếu fileName có dấu, sẽ tự động chuyển sang không dấu khi copy vào external storage
+     * - Sau khi copy, getDefaultAppSoundUri() sẽ tự động random chọn 1 file nếu có nhiều file
+     * - File được lưu trong external storage: Android/data/com.txahub.vn.app/files/notification_sounds/
+     *   Có thể truy cập từ máy tính khi cắm cáp USB
      */
     fun initializeDefaultAppSound(rawResourceId: Int, fileName: String) {
         // Chỉ setup nếu chưa có sound mặc định (folder rỗng)
-        val soundFolder = File(context.filesDir, SOUND_FOLDER)
+        val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
+        val soundFolder = File(baseDir, SOUND_FOLDER)
         val soundFiles = soundFolder.listFiles { _, name ->
             name.endsWith(".mp3", ignoreCase = true) || name.endsWith(".wav", ignoreCase = true)
         }?.filter { it.isFile } ?: emptyList()
