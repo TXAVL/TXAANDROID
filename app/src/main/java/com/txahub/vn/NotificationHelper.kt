@@ -25,6 +25,7 @@ class NotificationHelper(private val context: Context) {
     }
     
     private val soundManager: NotificationSoundManager by lazy { NotificationSoundManager(context) }
+    private val groupingManager: AndroidAutoGroupingManager by lazy { AndroidAutoGroupingManager(context) }
     
     init {
         createNotificationChannels()
@@ -36,6 +37,15 @@ class NotificationHelper(private val context: Context) {
     private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            
+            // Tạo notification group nếu grouping được bật
+            if (groupingManager.isGroupingEnabled()) {
+                val group = android.app.NotificationChannelGroup(
+                    groupingManager.getGroupId(),
+                    groupingManager.getGroupName()
+                )
+                notificationManager.createNotificationChannelGroup(group)
+            }
             
             // Channel cho thông báo cập nhật
             val updateChannel = NotificationChannel(
@@ -55,6 +65,10 @@ class NotificationHelper(private val context: Context) {
                 val soundUri = soundManager.getNotificationSoundUri()
                 // Luôn set sound (không bao giờ null vì default sẽ dùng sound hệ thống)
                 setSound(soundUri, null)
+                // Gán vào group nếu grouping được bật
+                if (groupingManager.isGroupingEnabled()) {
+                    group = groupingManager.getGroupId()
+                }
             }
             
             // Channel cho thông báo chạy nền
@@ -70,6 +84,10 @@ class NotificationHelper(private val context: Context) {
                 // Đặt sound cho background channel từ settings
                 val soundUri = soundManager.getNotificationSoundUri()
                 setSound(soundUri, null)
+                // Gán vào group nếu grouping được bật
+                if (groupingManager.isGroupingEnabled()) {
+                    group = groupingManager.getGroupId()
+                }
             }
             
             notificationManager.createNotificationChannel(updateChannel)
@@ -386,6 +404,48 @@ class NotificationHelper(private val context: Context) {
             
             // Nếu cả 2 channels đều chưa tồn tại, tạo mới
             if (existingUpdateChannel == null && existingBackgroundChannel == null) {
+                createNotificationChannels()
+            }
+        }
+    }
+    
+    /**
+     * Cập nhật notification channels grouping dựa trên cài đặt
+     */
+    fun updateNotificationChannelsGrouping() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val isGroupingEnabled = groupingManager.isGroupingEnabled()
+            
+            if (isGroupingEnabled) {
+                // Tạo group nếu chưa có
+                val group = android.app.NotificationChannelGroup(
+                    groupingManager.getGroupId(),
+                    groupingManager.getGroupName()
+                )
+                notificationManager.createNotificationChannelGroup(group)
+                
+                // Xóa và tạo lại channels để gán vào group
+                try {
+                    notificationManager.deleteNotificationChannel(CHANNEL_ID_UPDATE)
+                    notificationManager.deleteNotificationChannel(CHANNEL_ID_BACKGROUND)
+                } catch (e: Exception) {
+                    android.util.Log.e("NotificationHelper", "Error deleting channels for grouping update", e)
+                }
+                
+                // Tạo lại channels với group
+                createNotificationChannels()
+            } else {
+                // Xóa group và tạo lại channels không có group
+                try {
+                    notificationManager.deleteNotificationChannelGroup(groupingManager.getGroupId())
+                    notificationManager.deleteNotificationChannel(CHANNEL_ID_UPDATE)
+                    notificationManager.deleteNotificationChannel(CHANNEL_ID_BACKGROUND)
+                } catch (e: Exception) {
+                    android.util.Log.e("NotificationHelper", "Error removing grouping", e)
+                }
+                
+                // Tạo lại channels không có group
                 createNotificationChannels()
             }
         }

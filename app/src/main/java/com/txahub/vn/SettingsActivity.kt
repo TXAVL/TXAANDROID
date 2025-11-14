@@ -44,6 +44,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var soundManager: NotificationSoundManager
     private lateinit var logSettingsManager: LogSettingsManager
     private lateinit var ttsManager: NotificationTTSManager
+    private lateinit var androidAutoGroupingManager: AndroidAutoGroupingManager
     
     // Activity Result Launchers thay thế startActivityForResult (không còn dùng cho custom sound)
     private val pickSoundLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -74,6 +75,7 @@ class SettingsActivity : AppCompatActivity() {
         soundManager = NotificationSoundManager(this)
         logSettingsManager = LogSettingsManager(this)
         ttsManager = NotificationTTSManager(this)
+        androidAutoGroupingManager = AndroidAutoGroupingManager(this)
         
         // Khởi tạo TTS
         ttsManager.initialize { success ->
@@ -87,6 +89,7 @@ class SettingsActivity : AppCompatActivity() {
         loadPermissions()
         loadNotificationSoundSettings()
         loadLogSettings()
+        loadAndroidAutoGroupingSettings()
     }
     
     private fun setupViews() {
@@ -215,6 +218,31 @@ class SettingsActivity : AppCompatActivity() {
         switchLogUpdateCheck.setOnCheckedChangeListener { _, isChecked ->
             logSettingsManager.setUpdateCheckLogEnabled(isChecked)
             Toast.makeText(this, if (isChecked) "Đã bật Log Update Check" else "Đã tắt Log Update Check", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    /**
+     * Load và hiển thị Android Auto grouping settings
+     */
+    private fun loadAndroidAutoGroupingSettings() {
+        val switchAndroidAutoGrouping = findViewById<SwitchCompat>(R.id.switchAndroidAutoGrouping)
+        
+        // Tắt listener tạm thời để tránh trigger khi set giá trị
+        switchAndroidAutoGrouping.setOnCheckedChangeListener(null)
+        
+        // Set giá trị
+        switchAndroidAutoGrouping.isChecked = androidAutoGroupingManager.isGroupingEnabled()
+        
+        // Bật lại listener
+        switchAndroidAutoGrouping.setOnCheckedChangeListener { _, isChecked ->
+            androidAutoGroupingManager.setGroupingEnabled(isChecked)
+            Toast.makeText(
+                this,
+                if (isChecked) "Đã bật nhóm thông báo Android Auto" else "Đã tắt nhóm thông báo Android Auto",
+                Toast.LENGTH_SHORT
+            ).show()
+            // Cập nhật notification channels để áp dụng grouping
+            NotificationHelper(this).updateNotificationChannelsGrouping()
         }
     }
     
@@ -863,8 +891,8 @@ class SettingsActivity : AppCompatActivity() {
                     }
                     2 -> {
                         // Chọn từ danh sách ringtones hệ thống
-                        // Đảm bảo nhạc chuông của app đã được thêm vào MediaStore trước
-                        soundManager.addAppSoundToMediaStore(null, "TXA Hub")
+                        // Đảm bảo TẤT CẢ nhạc chuông của app đã được thêm vào MediaStore trước
+                        soundManager.addAllAppSoundsToMediaStore()
                         
                         // Đợi một chút để MediaStore cập nhật
                         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({

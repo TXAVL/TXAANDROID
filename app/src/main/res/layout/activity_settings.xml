@@ -179,6 +179,31 @@
 
             </LinearLayout>
 
+            <!-- Android Auto Grouping -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="16dp"
+                android:background="@drawable/bg_permission_item"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Nhóm thông báo Android Auto"
+                    android:textSize="16sp"
+                    android:textColor="@color/txa_text_primary" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/switchAndroidAutoGrouping"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+            </LinearLayout>
+
             <!-- Cài đặt log -->
             <TextView
                 android:layout_width="match_parent"

@@ -498,46 +498,85 @@ class NotificationSoundManager(private val context: Context) {
             val soundUri = copyRawSoundToInternalStorage(rawResourceId, fileName)
             if (soundUri != null) {
                 android.util.Log.d("NotificationSoundManager", "Default app sound initialized: $soundUri")
-                // Thêm vào MediaStore để xuất hiện trong RingtoneManager
-                // Hàm addAppSoundToMediaStore sẽ tự tìm file trong SOUND_FOLDER, không cần truyền URI
-                addAppSoundToMediaStore(null, "TXA Hub")
             }
-        } else {
-            // Nếu đã có file, vẫn đảm bảo nó được thêm vào MediaStore
-            addAppSoundToMediaStore(null, "TXA Hub")
+        }
+        // Không gọi addAppSoundToMediaStore ở đây nữa, sẽ gọi addAllAppSoundsToMediaStore() sau khi khởi tạo tất cả file
+    }
+    
+    /**
+     * Xóa tất cả entry của app trong MediaStore (bắt đầu bằng "TXA Hub")
+     */
+    private fun removeAllAppSoundsFromMediaStore() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val collection = MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                val deleted = context.contentResolver.delete(
+                    collection,
+                    "${MediaStore.Audio.Media.DISPLAY_NAME} LIKE ?",
+                    arrayOf("TXA Hub%")
+                )
+                android.util.Log.d("NotificationSoundManager", "Removed $deleted app sounds from MediaStore")
+            } else {
+                // Android 9-: Xóa file trong thư mục Notifications
+                val notificationsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_NOTIFICATIONS)
+                if (notificationsDir.exists() && notificationsDir.isDirectory) {
+                    notificationsDir.listFiles { _, name ->
+                        name.startsWith("TXA Hub", ignoreCase = true)
+                    }?.forEach { it.delete() }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("NotificationSoundManager", "Error removing app sounds from MediaStore", e)
         }
     }
     
     /**
-     * Thêm nhạc chuông của app vào MediaStore để xuất hiện trong RingtoneManager
-     * @param sourceUri URI của file nguồn (từ FileProvider hoặc raw resource) - không dùng nữa, sẽ tìm trong SOUND_FOLDER
-     * @param displayName Tên hiển thị trong RingtoneManager (ví dụ: "TXA Hub")
-     * @return URI của file trong MediaStore hoặc null nếu lỗi
+     * Thêm TẤT CẢ nhạc chuông của app vào MediaStore
+     * Mỗi file sẽ có tên riêng: "TXA Hub - [tên file]" (ví dụ: "TXA Hub - chuong", "TXA Hub - onlol")
      */
-    fun addAppSoundToMediaStore(sourceUri: Uri?, displayName: String): Uri? {
-        return try {
+    fun addAllAppSoundsToMediaStore() {
+        try {
+            // Xóa tất cả entry cũ trước
+            removeAllAppSoundsFromMediaStore()
+            
             // Đảm bảo file đã được copy vào external storage
             val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
             val soundFolder = File(baseDir, SOUND_FOLDER)
             
             if (!soundFolder.exists() || !soundFolder.isDirectory) {
                 android.util.Log.w("NotificationSoundManager", "Sound folder not found: ${soundFolder.absolutePath}")
-                return null
+                return
             }
             
-            // Tìm file đầu tiên trong folder (ưu tiên .mp3)
+            // Tìm TẤT CẢ file trong folder
             val soundFiles = soundFolder.listFiles { _, name ->
                 name.endsWith(".mp3", ignoreCase = true) || name.endsWith(".wav", ignoreCase = true)
             }?.filter { it.isFile } ?: emptyList()
             
             if (soundFiles.isEmpty()) {
                 android.util.Log.w("NotificationSoundManager", "No sound files found in folder: ${soundFolder.absolutePath}")
-                return null
+                return
             }
             
-            // Lấy file đầu tiên (hoặc random nếu muốn)
-            val soundFile = soundFiles[0]
+            android.util.Log.d("NotificationSoundManager", "Adding ${soundFiles.size} sounds to MediaStore")
             
+            // Thêm từng file vào MediaStore với tên riêng
+            for (soundFile in soundFiles) {
+                val fileNameWithoutExt = soundFile.nameWithoutExtension
+                val displayName = "TXA Hub - $fileNameWithoutExt"
+                addSingleSoundToMediaStore(soundFile, displayName)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("NotificationSoundManager", "Error adding all app sounds to MediaStore", e)
+            e.printStackTrace()
+        }
+    }
+    
+    /**
+     * Thêm một file nhạc chuông vào MediaStore
+     */
+    private fun addSingleSoundToMediaStore(soundFile: File, displayName: String): Uri? {
+        return try {
             android.util.Log.d("NotificationSoundManager", "Adding sound to MediaStore: ${soundFile.absolutePath}, displayName: $displayName")
             
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -558,7 +597,7 @@ class NotificationSoundManager(private val context: Context) {
                 // Kiểm tra xem đã có file với tên này chưa
                 val existingUri = context.contentResolver.query(
                     collection,
-                    arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.DATA),
+                    arrayOf(MediaStore.Audio.Media._ID),
                     "${MediaStore.Audio.Media.DISPLAY_NAME} = ?",
                     arrayOf(displayName),
                     null
@@ -611,10 +650,20 @@ class NotificationSoundManager(private val context: Context) {
             
             null
         } catch (e: Exception) {
-            android.util.Log.e("NotificationSoundManager", "Error adding app sound to MediaStore", e)
-            e.printStackTrace()
+            android.util.Log.e("NotificationSoundManager", "Error adding sound to MediaStore: ${soundFile.name}", e)
             null
         }
+    }
+    
+    /**
+     * Thêm nhạc chuông của app vào MediaStore để xuất hiện trong RingtoneManager
+     * @deprecated Sử dụng addAllAppSoundsToMediaStore() thay thế
+     */
+    @Deprecated("Use addAllAppSoundsToMediaStore() instead")
+    fun addAppSoundToMediaStore(sourceUri: Uri?, displayName: String): Uri? {
+        // Gọi addAllAppSoundsToMediaStore để thêm tất cả file
+        addAllAppSoundsToMediaStore()
+        return null
     }
 }
 

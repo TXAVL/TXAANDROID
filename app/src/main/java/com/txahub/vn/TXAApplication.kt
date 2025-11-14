@@ -86,17 +86,36 @@ class TXAApplication : Application() {
     
     /**
      * Khởi tạo sound mặc định của app từ raw resource
+     * Tự động tìm và khởi tạo TẤT CẢ file .mp3 và .wav trong res/raw/
      */
     private fun initializeDefaultNotificationSound() {
         try {
-            // Lấy resource ID của file chuong.mp3 trong res/raw/
-            val resourceId = resources.getIdentifier("chuong", "raw", packageName)
-            if (resourceId != 0) {
-                val soundManager = NotificationSoundManager(this)
-                soundManager.initializeDefaultAppSound(resourceId, "chuong.mp3")
-            } else {
-                Log.w("TXAApplication", "Default sound file chuong.mp3 not found in res/raw/")
+            val soundManager = NotificationSoundManager(this)
+            
+            // Danh sách file cần khởi tạo (theo thứ tự ưu tiên)
+            val soundFiles = listOf("chuong", "onlol")
+            
+            for (fileName in soundFiles) {
+                // Thử với .mp3 trước
+                var resourceId = resources.getIdentifier(fileName, "raw", packageName)
+                var fullFileName = "$fileName.mp3"
+                
+                if (resourceId == 0) {
+                    // Nếu không tìm thấy .mp3, thử với .wav
+                    resourceId = resources.getIdentifier(fileName, "raw", packageName)
+                    fullFileName = "$fileName.wav"
+                }
+                
+                if (resourceId != 0) {
+                    soundManager.initializeDefaultAppSound(resourceId, fullFileName)
+                    Log.d("TXAApplication", "Initialized sound: $fullFileName")
+                } else {
+                    Log.w("TXAApplication", "Sound file not found: $fileName (tried .mp3 and .wav)")
+                }
             }
+            
+            // Sau khi khởi tạo tất cả file, thêm vào MediaStore
+            soundManager.addAllAppSoundsToMediaStore()
         } catch (e: Exception) {
             Log.e("TXAApplication", "Error initializing default notification sound", e)
         }
