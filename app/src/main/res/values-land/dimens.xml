@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Navigation Drawer Width for landscape orientation -->
+    <dimen name="nav_drawer_width">320dp</dimen>
+</resources>
+

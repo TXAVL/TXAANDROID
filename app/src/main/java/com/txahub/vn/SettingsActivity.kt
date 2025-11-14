@@ -35,6 +35,14 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var btnOpenLogFile: Button
     private val logWriter = LogWriter(this)
     private lateinit var speedTest: SpeedTest
+    private lateinit var tvNotificationSound: TextView
+    private lateinit var btnChangeNotificationSound: Button
+    private lateinit var soundManager: NotificationSoundManager
+    private lateinit var audioTrimmer: AudioTrimmer
+    private val REQUEST_CODE_PICK_SOUND = 3001
+    private val REQUEST_CODE_PICK_SOUND_FOR_DEFAULT = 3002
+    private var selectedSoundUri: Uri? = null
+    private var isPickingForDefault = false
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,10 +50,13 @@ class SettingsActivity : AppCompatActivity() {
         
         updateChecker = UpdateChecker(this)
         speedTest = SpeedTest(this)
+        soundManager = NotificationSoundManager(this)
+        audioTrimmer = AudioTrimmer(this)
         
         setupViews()
         loadVersionInfo()
         loadPermissions()
+        loadNotificationSoundSettings()
     }
     
     private fun setupViews() {
@@ -75,6 +86,13 @@ class SettingsActivity : AppCompatActivity() {
         updateLogFileButtonVisibility()
         btnOpenLogFile.setOnClickListener {
             openLogFile()
+        }
+        
+        // Notification sound settings
+        tvNotificationSound = findViewById(R.id.tvNotificationSound)
+        btnChangeNotificationSound = findViewById(R.id.btnChangeNotificationSound)
+        btnChangeNotificationSound.setOnClickListener {
+            showNotificationSoundDialog()
         }
     }
     
@@ -489,6 +507,436 @@ class SettingsActivity : AppCompatActivity() {
         val settingsAction: String?
     )
     
+    /**
+     * Load và hiển thị cài đặt nhạc chuông
+     */
+    private fun loadNotificationSoundSettings() {
+        try {
+            val soundName = soundManager.getSoundDisplayName()
+            tvNotificationSound.text = "Hiện tại: $soundName"
+        } catch (e: Exception) {
+            e.printStackTrace()
+            tvNotificationSound.text = "Lỗi khi tải cài đặt"
+        }
+    }
+    
+    /**
+     * Hiển thị dialog chọn nhạc chuông
+     */
+    private fun showNotificationSoundDialog() {
+        val items = mutableListOf<String>()
+        items.add("Nhạc chuông mặc định của app")
+        items.add("Nhạc chuông hệ thống")
+        items.add("Chọn file nhạc")
+        
+        // Nếu đã có sound mặc định app, thêm option để thay đổi
+        if (soundManager.getDefaultAppSoundUri() != null) {
+            items.add("Đặt lại sound mặc định của app")
+        }
+        
+        AlertDialog.Builder(this)
+            .setTitle("Chọn nhạc chuông thông báo")
+            .setItems(items.toTypedArray()) { _, which ->
+                when {
+                    which == 0 -> {
+                        soundManager.setSoundType("default")
+                        soundManager.setCustomSoundUri(null)
+                        loadNotificationSoundSettings()
+                        Toast.makeText(this, "Đã đặt nhạc chuông mặc định", Toast.LENGTH_SHORT).show()
+                        // Cập nhật notification channel
+                        NotificationHelper(this).updateNotificationChannelSound()
+                    }
+                    which == 1 -> {
+                        soundManager.setSoundType("system")
+                        soundManager.setCustomSoundUri(null)
+                        loadNotificationSoundSettings()
+                        Toast.makeText(this, "Đã đặt nhạc chuông hệ thống", Toast.LENGTH_SHORT).show()
+                        // Cập nhật notification channel
+                        NotificationHelper(this).updateNotificationChannelSound()
+                    }
+                    which == 2 -> {
+                        showFilePickerDialog()
+                    }
+                    which == 3 && items.size > 3 -> {
+                        // Đặt lại sound mặc định của app
+                        showSetDefaultAppSoundDialog()
+                    }
+                }
+            }
+            .setNegativeButton("Hủy", null)
+            .show()
+    }
+    
+    /**
+     * Hiển thị dialog để đặt sound mặc định cho app
+     */
+    private fun showSetDefaultAppSoundDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Đặt sound mặc định cho app")
+            .setMessage("Bạn muốn đặt sound mặc định cho app từ đâu?")
+            .setItems(arrayOf(
+                "Chọn file nhạc mới",
+                "Dùng sound hiện tại (nếu có)",
+                "Xóa sound mặc định (dùng hệ thống)"
+            )) { _, which ->
+                when (which) {
+                    0 -> {
+                        // Chọn file mới để đặt làm mặc định
+                        pickSoundFileForDefault()
+                    }
+                    1 -> {
+                        // Dùng sound custom hiện tại (nếu có) - copy vào folder default
+                        val customUri = soundManager.getCustomSoundUri()
+                        if (customUri != null) {
+                            val defaultUri = soundManager.copySoundToDefaultFolder(customUri)
+                            if (defaultUri != null) {
+                                soundManager.setSoundType("default")
+                                loadNotificationSoundSettings()
+                                Toast.makeText(this, "Đã đặt sound mặc định cho app", Toast.LENGTH_SHORT).show()
+                                NotificationHelper(this).updateNotificationChannelSound()
+                            } else {
+                                Toast.makeText(this, "Lỗi khi copy sound", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            Toast.makeText(this, "Chưa có sound tùy chỉnh", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    2 -> {
+                        // Xóa sound mặc định - xóa tất cả file trong folder default
+                        soundManager.clearDefaultAppSounds()
+                        soundManager.setSoundType("default")
+                        loadNotificationSoundSettings()
+                        Toast.makeText(this, "Đã xóa sound mặc định, dùng hệ thống", Toast.LENGTH_SHORT).show()
+                        NotificationHelper(this).updateNotificationChannelSound()
+                    }
+                }
+            }
+            .setNegativeButton("Hủy", null)
+            .show()
+    }
+    
+    /**
+     * Mở file picker để chọn file nhạc làm mặc định cho app
+     */
+    private fun pickSoundFileForDefault() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "audio/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf(
+                "audio/mpeg",
+                "audio/mp3",
+                "audio/wav"
+            ))
+        }
+        
+        try {
+            startActivityForResult(intent, REQUEST_CODE_PICK_SOUND_FOR_DEFAULT)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Không thể mở file picker: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    /**
+     * Hiển thị dialog hướng dẫn trước khi chọn file
+     */
+    private fun showFilePickerDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Chọn file nhạc chuông")
+            .setMessage("""
+                Yêu cầu file nhạc chuông:
+                • Định dạng: MP3, WAV
+                • Kích thước tối đa: 500KB
+                • Thời lượng tối đa: 5 giây
+                
+                Bạn có muốn tiếp tục chọn file?
+            """.trimIndent())
+            .setPositiveButton("Chọn file") { _, _ ->
+                pickSoundFile()
+            }
+            .setNegativeButton("Hủy", null)
+            .show()
+    }
+    
+    /**
+     * Mở file picker để chọn file nhạc
+     */
+    private fun pickSoundFile() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "audio/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf(
+                "audio/mpeg",
+                "audio/mp3",
+                "audio/wav"
+            ))
+        }
+        
+        try {
+            startActivityForResult(intent, REQUEST_CODE_PICK_SOUND)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Không thể mở file picker: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        
+        if (requestCode == REQUEST_CODE_PICK_SOUND && resultCode == RESULT_OK) {
+            val uri = data?.data
+            if (uri != null) {
+                // Validate file
+                val (isValid, errorMessage, durationMs) = soundManager.validateSoundFile(uri)
+                
+                if (!isValid) {
+                    AlertDialog.Builder(this)
+                        .setTitle("File không hợp lệ")
+                        .setMessage(errorMessage)
+                        .setPositiveButton("OK", null)
+                        .show()
+                    return
+                }
+                
+                // Kiểm tra nếu file quá dài, toast thông báo rồi hiển thị dialog cắt nhạc
+                if (durationMs > NotificationSoundManager.MAX_SOUND_DURATION_MS) {
+                    val durationSeconds = durationMs / 1000.0
+                    val maxDurationSeconds = NotificationSoundManager.MAX_SOUND_DURATION_MS / 1000.0
+                    Toast.makeText(
+                        this,
+                        "File có thời lượng ${String.format("%.1f", durationSeconds)} giây, vượt quá ${String.format("%.1f", maxDurationSeconds)} giây. Vui lòng cắt nhạc.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    selectedSoundUri = uri
+                    isPickingForDefault = false
+                    showAudioTrimDialog(uri, durationMs)
+                } else {
+                    // File hợp lệ, lưu trực tiếp
+                    saveSoundFile(uri)
+                }
+            }
+        } else if (requestCode == REQUEST_CODE_PICK_SOUND_FOR_DEFAULT && resultCode == RESULT_OK) {
+            val uri = data?.data
+            if (uri != null) {
+                // Validate file
+                val (isValid, errorMessage, durationMs) = soundManager.validateSoundFile(uri)
+                
+                if (!isValid) {
+                    AlertDialog.Builder(this)
+                        .setTitle("File không hợp lệ")
+                        .setMessage(errorMessage)
+                        .setPositiveButton("OK", null)
+                        .show()
+                    return
+                }
+                
+                // Kiểm tra nếu file quá dài, toast thông báo rồi hiển thị dialog cắt nhạc
+                if (durationMs > NotificationSoundManager.MAX_SOUND_DURATION_MS) {
+                    val durationSeconds = durationMs / 1000.0
+                    val maxDurationSeconds = NotificationSoundManager.MAX_SOUND_DURATION_MS / 1000.0
+                    Toast.makeText(
+                        this,
+                        "File có thời lượng ${String.format("%.1f", durationSeconds)} giây, vượt quá ${String.format("%.1f", maxDurationSeconds)} giây. Vui lòng cắt nhạc.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    selectedSoundUri = uri
+                    isPickingForDefault = true
+                    showAudioTrimDialog(uri, durationMs)
+                } else {
+                    // File hợp lệ, lưu vào folder default
+                    saveSoundFileForDefault(uri)
+                }
+            }
+        }
+    }
+    
+    /**
+     * Hiển thị dialog cắt nhạc
+     */
+    private fun showAudioTrimDialog(uri: Uri, durationMs: Long) {
+        val durationSeconds = durationMs / 1000.0
+        val maxDurationSeconds = NotificationSoundManager.MAX_SOUND_DURATION_MS / 1000.0
+        
+        val dialogView = layoutInflater.inflate(R.layout.dialog_audio_trim, null)
+        val tvDurationInfo = dialogView.findViewById<TextView>(R.id.tvDurationInfo)
+        val tvStartTime = dialogView.findViewById<TextView>(R.id.tvStartTime)
+        val tvEndTime = dialogView.findViewById<TextView>(R.id.tvEndTime)
+        val tvSelectedDuration = dialogView.findViewById<TextView>(R.id.tvSelectedDuration)
+        val seekBarStart = dialogView.findViewById<android.widget.SeekBar>(R.id.seekBarStart)
+        val seekBarEnd = dialogView.findViewById<android.widget.SeekBar>(R.id.seekBarEnd)
+        val btnCancelTrim = dialogView.findViewById<Button>(R.id.btnCancelTrim)
+        val btnConfirmTrim = dialogView.findViewById<Button>(R.id.btnConfirmTrim)
+        
+        tvDurationInfo.text = "Thời lượng file: ${String.format("%.1f", durationSeconds)} giây (tối đa: ${maxDurationSeconds} giây)"
+        
+        // Thiết lập seekbar
+        val maxProgress = (durationSeconds * 10).toInt() // Độ chính xác 0.1 giây
+        seekBarStart.max = maxProgress
+        seekBarEnd.max = maxProgress
+        seekBarEnd.progress = (maxDurationSeconds * 10).toInt().coerceAtMost(maxProgress)
+        
+        // Cập nhật thời gian khi seekbar thay đổi
+        val updateTimes = {
+            val startSeconds = seekBarStart.progress / 10.0
+            val endSeconds = seekBarEnd.progress / 10.0
+            
+            tvStartTime.text = String.format("%.1f", startSeconds)
+            tvEndTime.text = String.format("%.1f", endSeconds)
+            tvSelectedDuration.text = "Độ dài đã chọn: ${String.format("%.1f", endSeconds - startSeconds)} giây"
+            
+            // Đảm bảo endTime >= startTime
+            if (endSeconds <= startSeconds) {
+                seekBarEnd.progress = (startSeconds * 10 + 1).toInt().coerceAtMost(maxProgress)
+                val newEndSeconds = seekBarEnd.progress / 10.0
+                tvEndTime.text = String.format("%.1f", newEndSeconds)
+                tvSelectedDuration.text = "Độ dài đã chọn: ${String.format("%.1f", newEndSeconds - startSeconds)} giây"
+            }
+        }
+        
+        seekBarStart.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    if (progress >= seekBarEnd.progress) {
+                        seekBarStart.progress = (seekBarEnd.progress - 1).coerceAtLeast(0)
+                    }
+                    updateTimes()
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
+        })
+        
+        seekBarEnd.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    if (progress <= seekBarStart.progress) {
+                        seekBarEnd.progress = (seekBarStart.progress + 1).coerceAtMost(maxProgress)
+                    }
+                    updateTimes()
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
+        })
+        
+        updateTimes()
+        
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .setCancelable(false)
+            .create()
+        
+        btnCancelTrim.setOnClickListener {
+            dialog.dismiss()
+            selectedSoundUri = null
+        }
+        
+        btnConfirmTrim.setOnClickListener {
+            val startSeconds = seekBarStart.progress / 10.0
+            val endSeconds = seekBarEnd.progress / 10.0
+            val startTimeMs = (startSeconds * 1000).toLong()
+            val endTimeMs = (endSeconds * 1000).toLong()
+            
+            // Cắt nhạc
+            trimAndSaveSound(uri, startTimeMs, endTimeMs, dialog)
+        }
+        
+        dialog.show()
+        
+        // Đặt kích thước dialog
+        val window = dialog.window
+        window?.setLayout(
+            (resources.displayMetrics.widthPixels * 0.9).toInt(),
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+    }
+    
+    /**
+     * Cắt và lưu file nhạc
+     */
+    private fun trimAndSaveSound(uri: Uri, startTimeMs: Long, endTimeMs: Long, dialog: AlertDialog) {
+        // Hiển thị progress
+        val progressDialog = AlertDialog.Builder(this)
+            .setTitle("Đang cắt nhạc...")
+            .setMessage("Vui lòng đợi")
+            .setCancelable(false)
+            .create()
+        progressDialog.show()
+        
+        Thread {
+            try {
+                // Tạo file tạm để lưu file đã cắt
+                val soundFolder = File(filesDir, "notification_sounds")
+                if (!soundFolder.exists()) {
+                    soundFolder.mkdirs()
+                }
+                val tempFile = File(soundFolder, "trimmed_${System.currentTimeMillis()}.mp4")
+                
+                // Cắt nhạc
+                val trimmedFile = audioTrimmer.trimAudio(uri, startTimeMs, endTimeMs, tempFile)
+                
+                runOnUiThread {
+                    progressDialog.dismiss()
+                    dialog.dismiss()
+                    
+                    if (trimmedFile != null) {
+                        val trimmedUri = Uri.fromFile(trimmedFile)
+                        if (isPickingForDefault) {
+                            saveSoundFileForDefault(trimmedUri)
+                        } else {
+                            saveSoundFile(trimmedUri)
+                        }
+                        Toast.makeText(this, "Đã cắt và lưu nhạc chuông", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this, "Lỗi khi cắt nhạc", Toast.LENGTH_SHORT).show()
+                    }
+                    selectedSoundUri = null
+                    isPickingForDefault = false
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    progressDialog.dismiss()
+                    dialog.dismiss()
+                    Toast.makeText(this, "Lỗi: ${e.message}", Toast.LENGTH_SHORT).show()
+                    selectedSoundUri = null
+                }
+            }
+        }.start()
+    }
+    
+    /**
+     * Lưu file nhạc chuông tùy chỉnh (vào folder custom)
+     */
+    private fun saveSoundFile(uri: Uri) {
+        // Copy file vào internal storage (folder custom)
+        val copiedUri = soundManager.copySoundToInternalStorage(uri)
+        if (copiedUri != null) {
+            soundManager.setSoundType("custom")
+            soundManager.setCustomSoundUri(copiedUri)
+            loadNotificationSoundSettings()
+            Toast.makeText(this, "Đã lưu nhạc chuông tùy chỉnh", Toast.LENGTH_SHORT).show()
+            // Cập nhật notification channel
+            NotificationHelper(this).updateNotificationChannelSound()
+        } else {
+            Toast.makeText(this, "Lỗi khi lưu file nhạc chuông", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    /**
+     * Lưu file nhạc chuông vào folder default của app
+     */
+    private fun saveSoundFileForDefault(uri: Uri) {
+        // Copy file vào folder default
+        val copiedUri = soundManager.copySoundToDefaultFolder(uri)
+        if (copiedUri != null) {
+            soundManager.setSoundType("default")
+            loadNotificationSoundSettings()
+            Toast.makeText(this, "Đã đặt sound mặc định cho app", Toast.LENGTH_SHORT).show()
+            // Cập nhật notification channel
+            NotificationHelper(this).updateNotificationChannelSound()
+        } else {
+            Toast.makeText(this, "Lỗi khi lưu file nhạc chuông", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
     override fun onResume() {
         super.onResume()
         // Cập nhật lại trạng thái quyền khi quay lại
@@ -499,6 +947,10 @@ class SettingsActivity : AppCompatActivity() {
             // Cập nhật hiển thị nút mở file log
             if (::btnOpenLogFile.isInitialized) {
                 updateLogFileButtonVisibility()
+            }
+            // Cập nhật cài đặt nhạc chuông
+            if (::tvNotificationSound.isInitialized) {
+                loadNotificationSoundSettings()
             }
         } catch (e: Exception) {
             e.printStackTrace()

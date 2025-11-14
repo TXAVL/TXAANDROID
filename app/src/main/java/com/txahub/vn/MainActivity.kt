@@ -257,6 +257,39 @@ class MainActivity : AppCompatActivity() {
                 super.onReceivedTitle(view, title)
                 // Có thể cập nhật title của activity
             }
+            
+            // Xử lý quyền truy cập file (ảnh/video)
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: android.webkit.ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
+            ): Boolean {
+                // Lưu callback
+                this@MainActivity.filePathCallback = filePathCallback
+                
+                // Kiểm tra quyền READ_EXTERNAL_STORAGE (chỉ cần cho Android < 13)
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                    if (ContextCompat.checkSelfPermission(
+                            this@MainActivity,
+                            Manifest.permission.READ_EXTERNAL_STORAGE
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        ActivityCompat.requestPermissions(
+                            this@MainActivity,
+                            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                            2001
+                        )
+                        return false
+                    }
+                }
+                
+                // Mở file picker
+                val intent = fileChooserParams?.createIntent()
+                if (intent != null) {
+                    startActivityForResult(intent, 2001)
+                }
+                return true
+            }
         }
     }
 
@@ -399,6 +432,24 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleIntent(intent)
+    }
+    
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        
+        // Xử lý file picker từ WebView
+        if (requestCode == 2001) {
+            if (filePathCallback != null) {
+                val results = if (resultCode == RESULT_OK && data != null) {
+                    arrayOf(data.data ?: return)
+                } else {
+                    null
+                }
+                filePathCallback?.onReceiveValue(results)
+                filePathCallback = null
+            }
+        }
     }
 
     /**
@@ -615,6 +666,66 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
+        
+        /**
+         * Kiểm tra quyền đọc storage (ảnh/video)
+         */
+        @JavascriptInterface
+        fun checkStoragePermission(): String {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                // Android 13+ không cần quyền READ_EXTERNAL_STORAGE cho media
+                "granted"
+            } else {
+                when {
+                    ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED -> "granted"
+                    else -> "denied"
+                }
+            }
+        }
+        
+        /**
+         * Yêu cầu quyền đọc storage (ảnh/video)
+         */
+        @JavascriptInterface
+        fun requestStoragePermission() {
+            runOnUiThread {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    // Android 13+ sử dụng media picker, không cần quyền
+                    showToast("Android 13+ tự động cấp quyền truy cập media")
+                } else {
+                    ActivityCompat.requestPermissions(
+                        this@MainActivity,
+                        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                        1004
+                    )
+                }
+            }
+        }
+        
+        /**
+         * Kiểm tra quyền đọc số điện thoại
+         */
+        @JavascriptInterface
+        fun checkPhonePermission(): String {
+            return when {
+                ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED -> "granted"
+                else -> "denied"
+            }
+        }
+        
+        /**
+         * Yêu cầu quyền đọc số điện thoại
+         */
+        @JavascriptInterface
+        fun requestPhonePermission() {
+            runOnUiThread {
+                ActivityCompat.requestPermissions(
+                    this@MainActivity,
+                    arrayOf(Manifest.permission.READ_PHONE_STATE),
+                    1005
+                )
+            }
+        }
 
         /**
          * Lấy danh sách các quyền app có
@@ -626,6 +737,8 @@ class MainActivity : AppCompatActivity() {
             permissions["notification"] = checkNotificationPermission()
             permissions["camera"] = checkCameraPermission()
             permissions["location"] = checkLocationPermission()
+            permissions["storage"] = checkStoragePermission()
+            permissions["phone"] = checkPhonePermission()
             
             // Chuyển đổi thành JSON string
             val json = permissions.entries.joinToString(", ") { "\"${it.key}\":\"${it.value}\"" }

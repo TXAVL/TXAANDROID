@@ -91,7 +91,13 @@
             android:name=".SettingsActivity"
             android:exported="false"
             android:theme="@style/Theme.TXAHub"
-            android:configChanges="orientation|screenSize|keyboardHidden" />
+            android:configChanges="orientation|screenSize|keyboardHidden">
+            <!-- Intent filter để mở từ notification settings -->
+            <intent-filter>
+                <action android:name="android.settings.APP_NOTIFICATION_SETTINGS" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
         
         <!-- Changelog Activity -->
         <activity

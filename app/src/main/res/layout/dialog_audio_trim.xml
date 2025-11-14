@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@color/white">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Cắt nhạc chuông"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="@color/txa_text_primary"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/tvDurationInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Thời lượng file: 0 giây"
+        android:textSize="14sp"
+        android:textColor="@color/txa_text_secondary"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Thời gian bắt đầu (giây):"
+        android:textSize="14sp"
+        android:textColor="@color/txa_text_primary"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:id="@+id/tvStartTime"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="0.0"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/txa_primary"
+            android:gravity="center" />
+
+        <SeekBar
+            android:id="@+id/seekBarStart"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="3"
+            android:max="100"
+            android:progress="0" />
+
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Thời gian kết thúc (giây):"
+        android:textSize="14sp"
+        android:textColor="@color/txa_text_primary"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="24dp">
+
+        <TextView
+            android:id="@+id/tvEndTime"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="5.0"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/txa_primary"
+            android:gravity="center" />
+
+        <SeekBar
+            android:id="@+id/seekBarEnd"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="3"
+            android:max="100"
+            android:progress="100" />
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvSelectedDuration"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Độ dài đã chọn: 5.0 giây"
+        android:textSize="14sp"
+        android:textColor="@color/txa_text_secondary"
+        android:gravity="center"
+        android:layout_marginBottom="16dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end">
+
+        <Button
+            android:id="@+id/btnCancelTrim"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Hủy"
+            android:textColor="@color/txa_text_primary"
+            android:backgroundTint="@android:color/transparent"
+            android:layout_marginEnd="8dp"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp" />
+
+        <Button
+            android:id="@+id/btnConfirmTrim"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cắt và lưu"
+            android:textColor="@color/white"
+            android:backgroundTint="@color/txa_primary"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp" />
+
+    </LinearLayout>
+
+</LinearLayout>
+

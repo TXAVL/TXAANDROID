@@ -131,6 +131,54 @@
                 android:padding="16dp"
                 android:visibility="gone" />
 
+            <!-- Cài đặt thông báo -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Cài đặt thông báo"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/txa_primary"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Nhạc chuông thông báo -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:background="@drawable/bg_permission_item"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Nhạc chuông thông báo"
+                    android:textSize="16sp"
+                    android:textColor="@color/txa_text_primary"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:id="@+id/tvNotificationSound"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Đang tải..."
+                    android:textSize="14sp"
+                    android:textColor="@color/txa_text_secondary"
+                    android:layout_marginBottom="12dp" />
+
+                <Button
+                    android:id="@+id/btnChangeNotificationSound"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Thay đổi nhạc chuông"
+                    android:textColor="@color/white"
+                    android:backgroundTint="@color/txa_primary"
+                    android:padding="12dp" />
+
+            </LinearLayout>
+
         </LinearLayout>
 
     </ScrollView>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Navigation Drawer Width - Responsive -->
+    <dimen name="nav_drawer_width">280dp</dimen>
+    
+    <!-- Responsive dimensions for different screen sizes -->
+    <!-- Small screens (phones) -->
+    <dimen name="nav_drawer_width_small">240dp</dimen>
+    
+    <!-- Large screens (tablets) -->
+    <dimen name="nav_drawer_width_large">320dp</dimen>
+</resources>
+

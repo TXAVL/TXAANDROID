@@ -19,6 +19,9 @@ class TXAApplication : Application() {
         // Tạo app shortcuts
         ShortcutHelper(this).createShortcuts()
         
+        // Khởi tạo sound mặc định của app từ raw resource
+        initializeDefaultNotificationSound()
+        
         // Log app start
         logWriter.writeAppLog("App Started", "Application onCreate", Log.INFO)
     }
@@ -75,6 +78,24 @@ class TXAApplication : Application() {
             "${packageInfo.versionName} (${packageInfo.longVersionCode})"
         } catch (e: Exception) {
             "Unknown"
+        }
+    }
+    
+    /**
+     * Khởi tạo sound mặc định của app từ raw resource
+     */
+    private fun initializeDefaultNotificationSound() {
+        try {
+            // Lấy resource ID của file chuoog.mp3 trong res/raw/
+            val resourceId = resources.getIdentifier("chuoog", "raw", packageName)
+            if (resourceId != 0) {
+                val soundManager = NotificationSoundManager(this)
+                soundManager.initializeDefaultAppSound(resourceId, "chuoog.mp3")
+            } else {
+                Log.w("TXAApplication", "Default sound file chuoog.mp3 not found in res/raw/")
+            }
+        } catch (e: Exception) {
+            Log.e("TXAApplication", "Error initializing default notification sound", e)
         }
     }
 }

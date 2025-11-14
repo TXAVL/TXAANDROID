@@ -23,6 +23,8 @@ class NotificationHelper(private val context: Context) {
         private const val NOTIFICATION_ID_UPDATE = 1001
     }
     
+    private val soundManager: NotificationSoundManager by lazy { NotificationSoundManager(context) }
+    
     init {
         createNotificationChannels()
     }
@@ -48,6 +50,10 @@ class NotificationHelper(private val context: Context) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     setBypassDnd(true)
                 }
+                // Đặt sound cho notification từ settings
+                val soundUri = soundManager.getNotificationSoundUri()
+                // Luôn set sound (không bao giờ null vì default sẽ dùng sound hệ thống)
+                setSound(soundUri, null)
             }
             
             // Channel cho thông báo chạy nền
@@ -169,6 +175,23 @@ class NotificationHelper(private val context: Context) {
      */
     fun cancelUpdateNotification() {
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID_UPDATE)
+    }
+    
+    /**
+     * Cập nhật sound cho notification channel
+     */
+    fun updateNotificationChannelSound() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val channel = notificationManager.getNotificationChannel(CHANNEL_ID_UPDATE)
+            
+            if (channel != null) {
+                val soundUri = soundManager.getNotificationSoundUri()
+                // Luôn set sound (không bao giờ null vì default sẽ dùng sound hệ thống)
+                channel.setSound(soundUri, null)
+                notificationManager.createNotificationChannel(channel)
+            }
+        }
     }
     
     /**

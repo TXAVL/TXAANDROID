@@ -52,7 +52,7 @@
     <!-- Sidebar (Navigation Drawer) -->
     <LinearLayout
         android:id="@+id/navigationView"
-        android:layout_width="280dp"
+        android:layout_width="@dimen/nav_drawer_width"
         android:layout_height="match_parent"
         android:layout_gravity="start"
         android:orientation="vertical"
