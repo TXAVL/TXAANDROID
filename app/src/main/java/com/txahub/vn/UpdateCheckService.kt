@@ -21,6 +21,7 @@ class UpdateCheckService : Service() {
     private val logWriter: LogWriter by lazy { LogWriter(this) }
     private val checkInterval: Long = 30 * 1000 // 30 giây
     private val notificationInterval: Long = 5 * 60 * 1000 // Thông báo mỗi 5 phút (giữ nguyên để không spam)
+    private val notificationCheckInterval: Long = 10 * 1000 // Kiểm tra notification mỗi 10 giây
     private val prefs by lazy { getSharedPreferences("txahub_prefs", Context.MODE_PRIVATE) }
     private var lastNotifiedVersion: String = ""
     private var lastNotificationTime: Long = 0
@@ -167,6 +168,39 @@ class UpdateCheckService : Service() {
         }
     }
     
+    /**
+     * Runnable để kiểm tra và tự động tạo lại notification nếu bị xóa
+     */
+    private val notificationCheckRunnable = object : Runnable {
+        override fun run() {
+            try {
+                // Kiểm tra xem notification còn tồn tại không (chỉ Android 6.0+)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val notificationManager = getSystemService(NotificationManager::class.java)
+                    val activeNotifications = notificationManager.activeNotifications
+                    val hasNotification = activeNotifications.any { it.id == NOTIFICATION_ID_BACKGROUND }
+                    
+                    if (!hasNotification) {
+                        // Notification bị xóa, tạo lại
+                        val hideNotification = prefs.getBoolean("hide_background_notification", false)
+                        android.util.Log.d("UpdateCheckService", "Notification bị xóa, tự động tạo lại (hide=$hideNotification)")
+                        logWriter.writeUpdateCheckLog("Notification bị xóa, tự động tạo lại (hide=$hideNotification)", "INFO")
+                        createForegroundNotification(hideNotification = hideNotification)
+                    }
+                } else {
+                    // Android < 6.0: Không thể kiểm tra, nhưng vẫn tạo lại định kỳ để đảm bảo
+                    // (Foreground notification với setOngoing(true) thường không bị xóa trên Android cũ)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("UpdateCheckService", "Error checking notification", e)
+                logWriter.writeUpdateCheckLog("Error checking notification: ${e.message}", "ERROR")
+            }
+            
+            // Lên lịch kiểm tra lại sau notificationCheckInterval
+            handler.postDelayed(this, notificationCheckInterval)
+        }
+    }
+    
     override fun onBind(intent: Intent?): IBinder? {
         return null
     }
@@ -194,6 +228,10 @@ class UpdateCheckService : Service() {
         
         // Bắt đầu check update định kỳ
         handler.post(checkRunnable)
+        
+        // Bắt đầu kiểm tra notification định kỳ (tự động hiện lại nếu bị xóa)
+        handler.post(notificationCheckRunnable)
+        
         return START_STICKY
     }
     

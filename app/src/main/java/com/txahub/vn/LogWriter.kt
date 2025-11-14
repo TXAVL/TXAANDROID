@@ -18,6 +18,7 @@ class LogWriter(private val context: Context) {
         private const val LOG_FILE_PREFIX_APP = "TXAAPP_app_"
         private const val LOG_FILE_PREFIX_CRASH = "TXAAPP_crash_"
         private const val LOG_FILE_PREFIX_UPDATE_CHECK = "TXAAPP_updatecheck_"
+        private const val LOG_FILE_PREFIX_PASSKEY = "TXAAPP_passkey_"
         private const val LOG_FILE_EXTENSION = ".txa"
         private const val MAX_LOG_FILE_SIZE = 5 * 1024 * 1024 // 5MB per file
         private const val MAX_LOG_FILES = 20 // Giữ tối đa 20 file log
@@ -278,6 +279,74 @@ class LogWriter(private val context: Context) {
      */
     fun getLogFolderPath(): String {
         return getLogFolder().absolutePath
+    }
+    
+    /**
+     * Ghi log Passkey (theo ngày)
+     */
+    fun writePasskeyLog(message: String, level: String = "INFO") {
+        // Kiểm tra xem log Passkey có được bật không
+        val logSettings = LogSettingsManager(context)
+        if (!logSettings.isPasskeyLogEnabled()) {
+            return
+        }
+        
+        if (!hasWritePermission()) {
+            return
+        }
+        
+        try {
+            val logFolder = getLogFolder()
+            if (!logFolder.exists()) {
+                logFolder.mkdirs()
+            }
+            
+            // Tạo tên file theo format: TXAAPP_passkey_YYYYMMDD.txa (1 file mỗi ngày)
+            val dateFormat = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.getDefault())
+            val dateStr = dateFormat.format(java.util.Date())
+            val fileName = "${LOG_FILE_PREFIX_PASSKEY}${dateStr}${LOG_FILE_EXTENSION}"
+            val logFile = File(logFolder, fileName)
+            
+            // Kiểm tra kích thước file, nếu quá lớn thì tạo file mới
+            val actualFile = if (logFile.exists() && logFile.length() > MAX_LOG_FILE_SIZE) {
+                val timestamp = java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault()).format(java.util.Date())
+                File(logFolder, "${LOG_FILE_PREFIX_PASSKEY}${dateStr}_${timestamp}${LOG_FILE_EXTENSION}")
+            } else {
+                logFile
+            }
+            
+            FileWriter(actualFile, true).use { writer ->
+                writer.append("[$level] ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", java.util.Locale.getDefault()).format(java.util.Date())} $message\n")
+            }
+            
+            // Dọn dẹp file log cũ
+            cleanupOldLogFiles(logFolder)
+            
+        } catch (e: Exception) {
+            android.util.Log.e("LogWriter", "Failed to write passkey log", e)
+        }
+    }
+    
+    /**
+     * Lấy file log Passkey mới nhất
+     */
+    fun getLatestPasskeyLogFile(): File? {
+        return try {
+            val logFolder = getLogFolder()
+            if (!logFolder.exists() || !logFolder.isDirectory) {
+                return null
+            }
+            
+            val logFiles = logFolder.listFiles { file ->
+                file.isFile && file.name.startsWith(LOG_FILE_PREFIX_PASSKEY) && 
+                               file.name.endsWith(LOG_FILE_EXTENSION)
+            }
+            
+            logFiles?.maxByOrNull { it.lastModified() }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
     
     /**

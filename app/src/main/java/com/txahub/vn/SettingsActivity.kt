@@ -45,6 +45,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var logSettingsManager: LogSettingsManager
     private lateinit var ttsManager: NotificationTTSManager
     private lateinit var androidAutoGroupingManager: AndroidAutoGroupingManager
+    private lateinit var webViewDebugManager: WebViewDebugManager
     
     // Activity Result Launchers thay thế startActivityForResult (không còn dùng cho custom sound)
     private val pickSoundLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { _ ->
@@ -135,6 +136,26 @@ class SettingsActivity : AppCompatActivity() {
         
         // Log settings
         setupLogSettings()
+        
+        // WebView Debug settings
+        setupWebViewDebugSettings()
+    }
+    
+    /**
+     * Setup WebView Debug settings UI
+     */
+    private fun setupWebViewDebugSettings() {
+        webViewDebugManager = WebViewDebugManager(this)
+        val switchWebViewDebug = findViewById<SwitchCompat>(R.id.switchWebViewDebug)
+        
+        // Load giá trị hiện tại
+        switchWebViewDebug.isChecked = webViewDebugManager.isWebViewDebugEnabled()
+        
+        // Lắng nghe thay đổi
+        switchWebViewDebug.setOnCheckedChangeListener { _, isChecked ->
+            webViewDebugManager.setWebViewDebugEnabled(isChecked)
+            Toast.makeText(this, if (isChecked) "Đã bật WebView Debugging" else "Đã tắt WebView Debugging", Toast.LENGTH_SHORT).show()
+        }
     }
     
     /**
@@ -145,6 +166,7 @@ class SettingsActivity : AppCompatActivity() {
         val switchLogApp = findViewById<SwitchCompat>(R.id.switchLogApp)
         val switchLogCrash = findViewById<SwitchCompat>(R.id.switchLogCrash)
         val switchLogUpdateCheck = findViewById<SwitchCompat>(R.id.switchLogUpdateCheck)
+        val switchLogPasskey = findViewById<SwitchCompat>(R.id.switchLogPasskey)
         val btnResetLogSettings = findViewById<Button>(R.id.btnResetLogSettings)
         
         // Lắng nghe thay đổi
@@ -166,6 +188,11 @@ class SettingsActivity : AppCompatActivity() {
         switchLogUpdateCheck.setOnCheckedChangeListener { _, isChecked ->
             logSettingsManager.setUpdateCheckLogEnabled(isChecked)
             Toast.makeText(this, if (isChecked) "Đã bật Log Update Check" else "Đã tắt Log Update Check", Toast.LENGTH_SHORT).show()
+        }
+        
+        switchLogPasskey.setOnCheckedChangeListener { _, isChecked ->
+            logSettingsManager.setPasskeyLogEnabled(isChecked)
+            Toast.makeText(this, if (isChecked) "Đã bật Log Passkey" else "Đã tắt Log Passkey", Toast.LENGTH_SHORT).show()
         }
         
         // Nút reset
@@ -191,18 +218,21 @@ class SettingsActivity : AppCompatActivity() {
         val switchLogApp = findViewById<SwitchCompat>(R.id.switchLogApp)
         val switchLogCrash = findViewById<SwitchCompat>(R.id.switchLogCrash)
         val switchLogUpdateCheck = findViewById<SwitchCompat>(R.id.switchLogUpdateCheck)
+        val switchLogPasskey = findViewById<SwitchCompat>(R.id.switchLogPasskey)
         
         // Tắt listener tạm thời để tránh trigger khi set giá trị
         switchLogApi.setOnCheckedChangeListener(null)
         switchLogApp.setOnCheckedChangeListener(null)
         switchLogCrash.setOnCheckedChangeListener(null)
         switchLogUpdateCheck.setOnCheckedChangeListener(null)
+        switchLogPasskey.setOnCheckedChangeListener(null)
         
         // Set giá trị
         switchLogApi.isChecked = logSettingsManager.isApiLogEnabled()
         switchLogApp.isChecked = logSettingsManager.isAppLogEnabled()
         switchLogCrash.isChecked = logSettingsManager.isCrashLogEnabled()
         switchLogUpdateCheck.isChecked = logSettingsManager.isUpdateCheckLogEnabled()
+        switchLogPasskey.isChecked = logSettingsManager.isPasskeyLogEnabled()
         
         // Bật lại listener
         switchLogApi.setOnCheckedChangeListener { _, isChecked ->
@@ -304,6 +334,7 @@ class SettingsActivity : AppCompatActivity() {
                 "crash" -> logWriter.getLatestCrashLogFile()
                 "api" -> logWriter.getLatestApiLogFile()
                 "updatecheck" -> logWriter.getLatestUpdateCheckLogFile()
+                "passkey" -> logWriter.getLatestPasskeyLogFile()
                 else -> null
             }
             
@@ -313,6 +344,7 @@ class SettingsActivity : AppCompatActivity() {
                     "crash" -> "crash"
                     "api" -> "API"
                     "updatecheck" -> "Update Check"
+                    "passkey" -> "Passkey"
                     else -> ""
                 }
                 Toast.makeText(this, "Không tìm thấy file log $logTypeName", Toast.LENGTH_SHORT).show()

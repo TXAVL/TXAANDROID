@@ -23,6 +23,7 @@ class PasskeyManager(private val context: Context) {
     
     private val credentialManager = CredentialManager.create(context)
     private val coroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val logWriter = LogWriter(context)
     
     companion object {
         private const val TAG = "PasskeyManager"
@@ -53,14 +54,42 @@ class PasskeyManager(private val context: Context) {
             try {
                 val config = JSONObject(configJson)
                 
+                // 1. Lấy và validate RP ID
+                val rpId = config.optString("rpId") 
+                    ?: config.optJSONObject("rp")?.optString("id")
+                    ?: throw IllegalArgumentException("RP ID not found in config")
+                
+                // 2. Lấy origin và hostname từ config
+                val origin = config.optString("origin", "")
+                val hostname = config.optString("hostname", "")
+                
+                // 3. Validate RP ID
+                if (hostname.isNotEmpty() && rpId != hostname) {
+                    val warningMsg = "RP ID ($rpId) does not match hostname ($hostname)"
+                    Log.w(TAG, warningMsg)
+                    logWriter.writePasskeyLog(warningMsg, "WARN")
+                    // Có thể vẫn tiếp tục nếu RP ID là domain chính
+                }
+                
+                // 4. Convert origin nếu cần (txahub:// → https://txahub.click)
+                val credentialOrigin = when {
+                    origin.startsWith("txahub://") -> "https://txahub.click"
+                    origin.isNotEmpty() -> origin
+                    else -> "https://txahub.click" // Fallback
+                }
+                
+                // 5. Log debug
+                val logMessage = "=== Creating Passkey ===\nRP ID: $rpId\nOrigin: $origin\nHostname: $hostname\nCredential Origin: $credentialOrigin"
+                Log.d(TAG, logMessage)
+                logWriter.writePasskeyLog(logMessage, "DEBUG")
+                
                 // Parse challenge
                 val challengeBase64 = config.getString("challenge")
                 val challenge = Base64.decode(challengeBase64, Base64.URL_SAFE or Base64.NO_WRAP)
                 
                 // Parse RP (Relying Party)
                 val rp = config.getJSONObject("rp")
-                val rpId = rp.getString("id")
-                val rpName = rp.getString("name")
+                val rpName = rp.optString("name", "TXA Hub")
                 
                 // Parse User
                 val user = config.getJSONObject("user")
@@ -102,9 +131,19 @@ class PasskeyManager(private val context: Context) {
                     }
                 }
                 
-                val createPublicKeyCredentialRequest = CreatePublicKeyCredentialRequest(
-                    requestJson.toString()
-                )
+                // 6. Tạo request cho Credential Manager với origin
+                val createPublicKeyCredentialRequest = try {
+                    // Thử tạo với origin parameter nếu API hỗ trợ
+                    CreatePublicKeyCredentialRequest::class.java
+                        .getConstructor(String::class.java, String::class.java)
+                        .newInstance(requestJson.toString(), credentialOrigin)
+                } catch (e: Exception) {
+                    // Fallback: tạo không có origin (API cũ)
+                    val warningMsg = "CreatePublicKeyCredentialRequest không hỗ trợ origin parameter, dùng constructor cũ"
+                    Log.w(TAG, warningMsg)
+                    logWriter.writePasskeyLog(warningMsg, "WARN")
+                    CreatePublicKeyCredentialRequest(requestJson.toString())
+                }
                 
                 val result = credentialManager.createCredential(
                     request = createPublicKeyCredentialRequest,
@@ -127,6 +166,7 @@ class PasskeyManager(private val context: Context) {
                 if (credential is PublicKeyCredential) {
                     val responseJson = credential.authenticationResponseJson
                     Log.d(TAG, "Passkey created successfully")
+                    logWriter.writePasskeyLog("Passkey created successfully", "INFO")
                     
                     // Gửi kết quả về web
                     val jsCode = """
@@ -143,10 +183,14 @@ class PasskeyManager(private val context: Context) {
                 }
                 
             } catch (e: CreateCredentialException) {
-                Log.e(TAG, "Error creating passkey", e)
+                val errorMsg = "Error creating passkey: ${e.message}"
+                Log.e(TAG, errorMsg, e)
+                logWriter.writePasskeyLog("$errorMsg\n${e.stackTraceToString()}", "ERROR")
                 handleCreateException(e, callback, webView)
             } catch (e: Exception) {
-                Log.e(TAG, "Unexpected error creating passkey", e)
+                val errorMsg = "Unexpected error creating passkey: ${e.message}"
+                Log.e(TAG, errorMsg, e)
+                logWriter.writePasskeyLog("$errorMsg\n${e.stackTraceToString()}", "ERROR")
                 val jsCode = """
                     if(window.TXAApp && window.TXAApp.$callback) {
                         window.TXAApp.$callback({
@@ -177,12 +221,29 @@ class PasskeyManager(private val context: Context) {
             try {
                 val config = JSONObject(configJson)
                 
+                // 1. Lấy và validate RP ID
+                val rpId = config.optString("rpId") 
+                    ?: throw IllegalArgumentException("RP ID not found in config")
+                
+                // 2. Lấy origin và hostname từ config
+                val origin = config.optString("origin", "")
+                val hostname = config.optString("hostname", "")
+                
+                // 3. Convert origin nếu cần
+                val credentialOrigin = when {
+                    origin.startsWith("txahub://") -> "https://txahub.click"
+                    origin.isNotEmpty() -> origin
+                    else -> "https://txahub.click" // Fallback
+                }
+                
+                // 4. Log debug
+                val logMessage = "=== Getting Passkey ===\nRP ID: $rpId\nOrigin: $origin\nHostname: $hostname\nCredential Origin: $credentialOrigin"
+                Log.d(TAG, logMessage)
+                logWriter.writePasskeyLog(logMessage, "DEBUG")
+                
                 // Parse challenge
                 val challengeBase64 = config.getString("challenge")
                 val challenge = Base64.decode(challengeBase64, Base64.URL_SAFE or Base64.NO_WRAP)
-                
-                // Parse rpId
-                val rpId = config.getString("rpId")
                 
                 // Parse allowCredentials (optional)
                 val allowCredentials = config.optJSONArray("allowCredentials")
@@ -204,9 +265,19 @@ class PasskeyManager(private val context: Context) {
                     }
                 }
                 
-                val getPublicKeyCredentialOption = GetPublicKeyCredentialOption(
-                    requestJson.toString()
-                )
+                // 5. Tạo request cho Credential Manager với origin
+                val getPublicKeyCredentialOption = try {
+                    // Thử tạo với origin parameter nếu API hỗ trợ
+                    GetPublicKeyCredentialOption::class.java
+                        .getConstructor(String::class.java, String::class.java)
+                        .newInstance(requestJson.toString(), credentialOrigin)
+                } catch (e: Exception) {
+                    // Fallback: tạo không có origin (API cũ)
+                    val warningMsg = "GetPublicKeyCredentialOption không hỗ trợ origin parameter, dùng constructor cũ"
+                    Log.w(TAG, warningMsg)
+                    logWriter.writePasskeyLog(warningMsg, "WARN")
+                    GetPublicKeyCredentialOption(requestJson.toString())
+                }
                 
                 val getCredentialRequest = GetCredentialRequest(
                     listOf(getPublicKeyCredentialOption)
@@ -233,6 +304,7 @@ class PasskeyManager(private val context: Context) {
                 if (credential is PublicKeyCredential) {
                     val responseJson = credential.authenticationResponseJson
                     Log.d(TAG, "Passkey retrieved successfully")
+                    logWriter.writePasskeyLog("Passkey retrieved successfully", "INFO")
                     
                     // Gửi kết quả về web
                     val jsCode = """
@@ -249,10 +321,14 @@ class PasskeyManager(private val context: Context) {
                 }
                 
             } catch (e: GetCredentialException) {
-                Log.e(TAG, "Error getting passkey", e)
+                val errorMsg = "Error getting passkey: ${e.message}"
+                Log.e(TAG, errorMsg, e)
+                logWriter.writePasskeyLog("$errorMsg\n${e.stackTraceToString()}", "ERROR")
                 handleGetException(e, callback, webView)
             } catch (e: Exception) {
-                Log.e(TAG, "Unexpected error getting passkey", e)
+                val errorMsg = "Unexpected error getting passkey: ${e.message}"
+                Log.e(TAG, errorMsg, e)
+                logWriter.writePasskeyLog("$errorMsg\n${e.stackTraceToString()}", "ERROR")
                 val jsCode = """
                     if(window.TXAApp && window.TXAApp.$callback) {
                         window.TXAApp.$callback({

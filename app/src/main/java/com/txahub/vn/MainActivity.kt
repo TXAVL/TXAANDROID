@@ -255,17 +255,24 @@ class MainActivity : AppCompatActivity() {
         // Bật database storage
         webSettings.databaseEnabled = true
         
-        // Bật WebView debugging (chỉ trong debug mode)
-        // BuildConfig được generate tự động, không cần import
+        // Bật WebView debugging (theo setting hoặc debug mode)
+        val webViewDebugManager = WebViewDebugManager(this)
         try {
-            val buildConfigClass = Class.forName("com.txahub.vn.BuildConfig")
-            val debugField = buildConfigClass.getField("DEBUG")
-            val isDebug = debugField.getBoolean(null)
-            if (isDebug) {
+            // Kiểm tra setting trước
+            if (webViewDebugManager.isWebViewDebugEnabled()) {
                 WebView.setWebContentsDebuggingEnabled(true)
+            } else {
+                // Nếu setting tắt, kiểm tra debug mode
+                val buildConfigClass = Class.forName("com.txahub.vn.BuildConfig")
+                val debugField = buildConfigClass.getField("DEBUG")
+                val isDebug = debugField.getBoolean(null)
+                if (isDebug) {
+                    WebView.setWebContentsDebuggingEnabled(true)
+                }
             }
         } catch (e: Exception) {
-            // Nếu không tìm thấy BuildConfig, mặc định không bật debugging trong release
+            // Nếu không tìm thấy BuildConfig, áp dụng setting
+            webViewDebugManager.applyWebViewDebugSetting()
         }
 
         // Cho phép truy cập file

@@ -16,6 +16,7 @@ class LogSettingsManager(private val context: Context) {
         private const val KEY_LOG_APP_ENABLED = "log_app_enabled"
         private const val KEY_LOG_CRASH_ENABLED = "log_crash_enabled"
         private const val KEY_LOG_UPDATE_CHECK_ENABLED = "log_update_check_enabled"
+        private const val KEY_LOG_PASSKEY_ENABLED = "log_passkey_enabled"
         
         // Mặc định: tất cả đều bật
         private const val DEFAULT_ENABLED = true
@@ -80,6 +81,20 @@ class LogSettingsManager(private val context: Context) {
     }
     
     /**
+     * Kiểm tra xem log Passkey có được bật không
+     */
+    fun isPasskeyLogEnabled(): Boolean {
+        return prefs.getBoolean(KEY_LOG_PASSKEY_ENABLED, DEFAULT_ENABLED)
+    }
+    
+    /**
+     * Bật/tắt log Passkey
+     */
+    fun setPasskeyLogEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_LOG_PASSKEY_ENABLED, enabled).apply()
+    }
+    
+    /**
      * Reset tất cả về mặc định (bật tất cả)
      */
     fun resetToDefaults() {
@@ -88,6 +103,7 @@ class LogSettingsManager(private val context: Context) {
             .putBoolean(KEY_LOG_APP_ENABLED, DEFAULT_ENABLED)
             .putBoolean(KEY_LOG_CRASH_ENABLED, DEFAULT_ENABLED)
             .putBoolean(KEY_LOG_UPDATE_CHECK_ENABLED, DEFAULT_ENABLED)
+            .putBoolean(KEY_LOG_PASSKEY_ENABLED, DEFAULT_ENABLED)
             .apply()
     }
 }
