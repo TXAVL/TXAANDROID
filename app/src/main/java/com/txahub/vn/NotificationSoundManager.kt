@@ -1,10 +1,13 @@
 package com.txahub.vn
 
+import android.content.ContentValues
 import android.content.Context
 import android.content.SharedPreferences
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import java.io.File
@@ -87,6 +90,44 @@ class NotificationSoundManager(private val context: Context) {
     }
     
     /**
+     * Lấy URI của sound từ raw resource (chuong.mp3)
+     * Nếu file đã được copy vào external storage, trả về URI từ đó
+     * Nếu chưa, trả về null
+     */
+    fun getRawSoundUri(): Uri? {
+        // Kiểm tra xem file đã được copy vào external storage chưa
+        val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
+        val soundFolder = File(baseDir, SOUND_FOLDER)
+        val soundFile = File(soundFolder, "chuong.mp3")
+        
+        if (soundFile.exists()) {
+            return try {
+                FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    soundFile
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("NotificationSoundManager", "Error getting URI from FileProvider", e)
+                Uri.fromFile(soundFile)
+            }
+        }
+        
+        // Nếu chưa có, thử lấy từ raw resource trực tiếp
+        return try {
+            val resourceId = context.resources.getIdentifier("chuong", "raw", context.packageName)
+            if (resourceId != 0) {
+                Uri.parse("android.resource://${context.packageName}/$resourceId")
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("NotificationSoundManager", "Error getting raw sound URI", e)
+            null
+        }
+    }
+    
+    /**
      * Lấy URI của nhạc chuông để sử dụng trong notification
      */
     fun getNotificationSoundUri(): Uri? {
@@ -96,6 +137,10 @@ class NotificationSoundManager(private val context: Context) {
                 getDefaultAppSoundUri() ?: Settings.System.DEFAULT_NOTIFICATION_URI
             }
             "system" -> Settings.System.DEFAULT_NOTIFICATION_URI
+            "system_txa" -> {
+                // Sound TXA Hub từ raw resource
+                getRawSoundUri() ?: Settings.System.DEFAULT_NOTIFICATION_URI
+            }
             "custom" -> getCustomSoundUri()
             else -> Settings.System.DEFAULT_NOTIFICATION_URI
         }
@@ -184,6 +229,10 @@ class NotificationSoundManager(private val context: Context) {
             "system" -> {
                 // Lấy tên nhạc chuông hệ thống (khó lấy chính xác, dùng tên chung)
                 "Nhạc chuông hệ thống"
+            }
+            "system_txa" -> {
+                // Nhạc chuông TXA Hub từ raw resource
+                "TXA Hub"
             }
             "custom" -> {
                 val uri = getCustomSoundUri()
@@ -449,7 +498,79 @@ class NotificationSoundManager(private val context: Context) {
             val soundUri = copyRawSoundToInternalStorage(rawResourceId, fileName)
             if (soundUri != null) {
                 android.util.Log.d("NotificationSoundManager", "Default app sound initialized: $soundUri")
+                // Thêm vào MediaStore để xuất hiện trong RingtoneManager
+                addAppSoundToMediaStore(soundUri, "TXA Hub")
             }
+        }
+    }
+    
+    /**
+     * Thêm nhạc chuông của app vào MediaStore để xuất hiện trong RingtoneManager
+     * @param sourceUri URI của file nguồn (từ FileProvider hoặc raw resource)
+     * @param displayName Tên hiển thị trong RingtoneManager (ví dụ: "TXA Hub")
+     * @return URI của file trong MediaStore hoặc null nếu lỗi
+     */
+    fun addAppSoundToMediaStore(sourceUri: Uri, displayName: String): Uri? {
+        return try {
+            // Đảm bảo file đã được copy vào external storage
+            val baseDir = context.getExternalFilesDir(null) ?: context.filesDir
+            val soundFolder = File(baseDir, SOUND_FOLDER)
+            val soundFile = File(soundFolder, "chuong.mp3")
+            
+            if (!soundFile.exists()) {
+                android.util.Log.w("NotificationSoundManager", "Sound file not found: ${soundFile.absolutePath}")
+                return null
+            }
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // Android 10+ sử dụng MediaStore API
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.Audio.Media.DISPLAY_NAME, displayName)
+                    put(MediaStore.Audio.Media.TITLE, displayName)
+                    put(MediaStore.Audio.Media.MIME_TYPE, "audio/mpeg")
+                    put(MediaStore.Audio.Media.IS_NOTIFICATION, 1)
+                    put(MediaStore.Audio.Media.IS_RINGTONE, 0)
+                    put(MediaStore.Audio.Media.IS_ALARM, 0)
+                    put(MediaStore.Audio.Media.IS_MUSIC, 0)
+                }
+                
+                val collection = MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                val mediaStoreUri = context.contentResolver.insert(collection, contentValues)
+                
+                if (mediaStoreUri != null) {
+                    // Copy file vào MediaStore
+                    context.contentResolver.openOutputStream(mediaStoreUri)?.use { outputStream ->
+                        soundFile.inputStream().use { inputStream ->
+                            inputStream.copyTo(outputStream)
+                        }
+                    }
+                    android.util.Log.d("NotificationSoundManager", "Added app sound to MediaStore: $mediaStoreUri")
+                    return mediaStoreUri
+                }
+            } else {
+                // Android 9-: Copy vào thư mục Notifications và scan media
+                val notificationsDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_NOTIFICATIONS), displayName)
+                if (!notificationsDir.parentFile?.exists() == true) {
+                    notificationsDir.parentFile?.mkdirs()
+                }
+                
+                val destFile = File(notificationsDir.parent, "${displayName}.mp3")
+                soundFile.copyTo(destFile, overwrite = true)
+                
+                // Scan media để hệ thống nhận diện
+                val mediaScanIntent = android.content.Intent(android.content.Intent.ACTION_MEDIA_SCANNER_SCAN_FILE).apply {
+                    data = Uri.fromFile(destFile)
+                }
+                context.sendBroadcast(mediaScanIntent)
+                
+                android.util.Log.d("NotificationSoundManager", "Added app sound to notifications folder: ${destFile.absolutePath}")
+                return Uri.fromFile(destFile)
+            }
+            
+            null
+        } catch (e: Exception) {
+            android.util.Log.e("NotificationSoundManager", "Error adding app sound to MediaStore", e)
+            null
         }
     }
 }

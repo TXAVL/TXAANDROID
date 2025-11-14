@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -55,6 +56,21 @@ class SettingsActivity : AppCompatActivity() {
                 } else {
                     handleSoundFile(uri)
                 }
+            }
+        }
+    }
+    
+    // Launcher cho RingtoneManager (chọn nhạc chuông hệ thống)
+    private val pickRingtoneLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val uri = result.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            if (uri != null) {
+                soundManager.setSoundType("system")
+                soundManager.setCustomSoundUri(null)
+                // Lưu URI của ringtone đã chọn (nếu cần)
+                loadNotificationSoundSettings()
+                Toast.makeText(this, "Đã đặt nhạc chuông hệ thống", Toast.LENGTH_SHORT).show()
+                NotificationHelper(this).updateNotificationChannelSound()
             }
         }
     }
@@ -510,6 +526,38 @@ class SettingsActivity : AppCompatActivity() {
                     }
                 },
                 settingsAction = Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS
+            ),
+            PermissionItem(
+                name = "ringtone",
+                displayName = "Thay đổi nhạc chuông",
+                checkFunction = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        Settings.System.canWrite(this)
+                    } else {
+                        // Android < 6.0, quyền được cấp tự động
+                        true
+                    }
+                },
+                settingsAction = Settings.ACTION_MANAGE_WRITE_SETTINGS
+            ),
+            PermissionItem(
+                name = "audio",
+                displayName = "Ghi đè nhạc chuông và thông báo",
+                checkFunction = {
+                    // MODIFY_AUDIO_SETTINGS là quyền signature-level, nhưng có thể kiểm tra
+                    // Thực tế, quyền này thường được cấp tự động cho app
+                    // Kiểm tra xem có thể thay đổi audio settings không
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            Settings.System.canWrite(this)
+                        } else {
+                            true
+                        }
+                    } catch (e: Exception) {
+                        false
+                    }
+                },
+                settingsAction = Settings.ACTION_MANAGE_WRITE_SETTINGS
             )
         )
         
@@ -544,6 +592,25 @@ class SettingsActivity : AppCompatActivity() {
     private fun openPermissionSettings(item: PermissionItem) {
         try {
             val intent = when {
+                item.name == "ringtone" || item.name == "audio" -> {
+                    // Quyền WRITE_SETTINGS cần yêu cầu đặc biệt trên Android 6.0+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        if (!Settings.System.canWrite(this)) {
+                            // Mở Settings để cấp quyền WRITE_SETTINGS
+                            Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
+                                data = Uri.parse("package:$packageName")
+                            }
+                        } else {
+                            // Đã có quyền, không cần làm gì
+                            Toast.makeText(this, "Đã có quyền thay đổi nhạc chuông", Toast.LENGTH_SHORT).show()
+                            return
+                        }
+                    } else {
+                        // Android < 6.0, quyền được cấp tự động
+                        Toast.makeText(this, "Quyền đã được cấp tự động", Toast.LENGTH_SHORT).show()
+                        return
+                    }
+                }
                 item.settingsAction == Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION -> {
                     Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
                         data = Uri.parse("package:$packageName")
@@ -754,12 +821,8 @@ class SettingsActivity : AppCompatActivity() {
                         NotificationHelper(this).updateNotificationChannelSound()
                     }
                     which == 1 -> {
-                        soundManager.setSoundType("system")
-                        soundManager.setCustomSoundUri(null)
-                        loadNotificationSoundSettings()
-                        Toast.makeText(this, "Đã đặt nhạc chuông hệ thống", Toast.LENGTH_SHORT).show()
-                        // Cập nhật notification channel
-                        NotificationHelper(this).updateNotificationChannelSound()
+                        // Hiển thị dialog chọn nhạc chuông hệ thống (bao gồm TXA Hub)
+                        showSystemSoundDialog()
                     }
                     which == 2 -> {
                         showFilePickerDialog()
@@ -767,6 +830,63 @@ class SettingsActivity : AppCompatActivity() {
                     which == 3 && items.size > 3 -> {
                         // Đặt lại sound mặc định của app
                         showSetDefaultAppSoundDialog()
+                    }
+                }
+            }
+            .setNegativeButton("Hủy", null)
+            .show()
+    }
+    
+    /**
+     * Hiển thị dialog chọn nhạc chuông hệ thống (bao gồm TXA Hub)
+     */
+    private fun showSystemSoundDialog() {
+        val items = mutableListOf<String>()
+        items.add("Mặc định hệ thống")
+        items.add("TXA Hub")
+        items.add("Chọn từ danh sách ringtones hệ thống")
+        
+        AlertDialog.Builder(this)
+            .setTitle("Chọn nhạc chuông hệ thống")
+            .setItems(items.toTypedArray()) { _, which ->
+                when (which) {
+                    0 -> {
+                        // Mặc định hệ thống
+                        soundManager.setSoundType("system")
+                        soundManager.setCustomSoundUri(null)
+                        loadNotificationSoundSettings()
+                        Toast.makeText(this, "Đã đặt nhạc chuông mặc định hệ thống", Toast.LENGTH_SHORT).show()
+                        NotificationHelper(this).updateNotificationChannelSound()
+                    }
+                    1 -> {
+                        // TXA Hub (từ res/raw)
+                        val rawSoundUri = soundManager.getRawSoundUri()
+                        if (rawSoundUri != null) {
+                            soundManager.setSoundType("system_txa")
+                            soundManager.setCustomSoundUri(null)
+                            loadNotificationSoundSettings()
+                            Toast.makeText(this, "Đã đặt nhạc chuông TXA Hub", Toast.LENGTH_SHORT).show()
+                            NotificationHelper(this).updateNotificationChannelSound()
+                        } else {
+                            Toast.makeText(this, "Không tìm thấy file nhạc chuông TXA Hub", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    2 -> {
+                        // Chọn từ danh sách ringtones hệ thống
+                        // Đảm bảo nhạc chuông của app đã được thêm vào MediaStore
+                        val rawSoundUri = soundManager.getRawSoundUri()
+                        if (rawSoundUri != null) {
+                            soundManager.addAppSoundToMediaStore(rawSoundUri, "TXA Hub")
+                        }
+                        
+                        val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION)
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Chọn nhạc chuông thông báo")
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, soundManager.getNotificationSoundUri())
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                        }
+                        pickRingtoneLauncher.launch(intent)
                     }
                 }
             }

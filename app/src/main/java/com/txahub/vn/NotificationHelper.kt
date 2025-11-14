@@ -1,5 +1,6 @@
 package com.txahub.vn
 
+import android.app.ActivityManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -140,6 +141,18 @@ class NotificationHelper(private val context: Context) {
         // Chuyển đổi Drawable thành Bitmap
         val appIconBitmap = appIconDrawable?.let { drawableToBitmap(it) }
         
+        // Lấy thông tin sound đang dùng TRƯỚC KHI tạo notification builder
+        val soundUri = soundManager.getNotificationSoundUri()
+        val soundType = soundManager.getSoundType()
+        val soundDisplayName = soundManager.getSoundDisplayName()
+        
+        // Log thông tin notification và sound
+        android.util.Log.d("NotificationHelper", "=== Sending Update Notification ===")
+        android.util.Log.d("NotificationHelper", "Channel: $CHANNEL_ID_UPDATE")
+        android.util.Log.d("NotificationHelper", "Sound type: $soundType")
+        android.util.Log.d("NotificationHelper", "Sound URI: $soundUri")
+        android.util.Log.d("NotificationHelper", "Sound display name: $soundDisplayName")
+        
         val notificationBuilder = NotificationCompat.Builder(context, CHANNEL_ID_UPDATE)
             .setSmallIcon(android.R.drawable.stat_notify_sync) // Icon mặc định
             .setContentTitle(title)
@@ -149,7 +162,10 @@ class NotificationHelper(private val context: Context) {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setAutoCancel(true)
             .setContentIntent(downloadPendingIntent)
-            .setDefaults(NotificationCompat.DEFAULT_ALL) // Sound, vibration, lights
+            // Set sound trực tiếp từ settings (override channel sound)
+            .setSound(soundUri)
+            // Set vibration và lights từ defaults (không override sound)
+            .setDefaults(NotificationCompat.DEFAULT_VIBRATE or NotificationCompat.DEFAULT_LIGHTS)
             .setCategory(NotificationCompat.CATEGORY_STATUS) // Cho phép customize trong settings
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Hiển thị trên lock screen
             .setFullScreenIntent(downloadPendingIntent, forceUpdate) // Full screen intent cho force update
@@ -168,19 +184,6 @@ class NotificationHelper(private val context: Context) {
         appIconBitmap?.let {
             notificationBuilder.setLargeIcon(it)
         }
-        
-        // Lấy thông tin sound đang dùng để log
-        val soundUri = soundManager.getNotificationSoundUri()
-        val soundType = soundManager.getSoundType()
-        val soundDisplayName = soundManager.getSoundDisplayName()
-        
-        // Log thông tin notification và sound
-        android.util.Log.d("NotificationHelper", "=== Sending Update Notification ===")
-        android.util.Log.d("NotificationHelper", "Channel: $CHANNEL_ID_UPDATE")
-        android.util.Log.d("NotificationHelper", "Sound type: $soundType")
-        android.util.Log.d("NotificationHelper", "Sound URI: $soundUri")
-        android.util.Log.d("NotificationHelper", "Sound display name: $soundDisplayName")
-        android.util.Log.d("NotificationHelper", "Force update: $forceUpdate")
         
         // Ghi log vào file
         val logWriter = LogWriter(context)
@@ -204,8 +207,18 @@ class NotificationHelper(private val context: Context) {
     }
     
     /**
+     * Kiểm tra xem UpdateCheckService có đang chạy không
+     */
+    private fun isUpdateCheckServiceRunning(): Boolean {
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val runningServices = activityManager.getRunningServices(Integer.MAX_VALUE)
+        return runningServices.any { it.service.className == UpdateCheckService::class.java.name }
+    }
+    
+    /**
      * Cập nhật sound cho notification channel
      * Trên Android 8.0+, không thể update channel đã tồn tại, phải xóa và tạo lại
+     * Nếu service đang chạy, sẽ tạm thời stop service để cập nhật channel
      */
     fun updateNotificationChannelSound() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -281,6 +294,8 @@ class NotificationHelper(private val context: Context) {
             // Update BACKGROUND channel
             val existingBackgroundChannel = notificationManager.getNotificationChannel(CHANNEL_ID_BACKGROUND)
             if (existingBackgroundChannel != null) {
+                // Lưu lại trạng thái service trước khi xử lý
+                var wasServiceRunning = false
                 try {
                     // Lưu lại các settings quan trọng trước khi xóa
                     val importance = existingBackgroundChannel.importance
@@ -299,7 +314,25 @@ class NotificationHelper(private val context: Context) {
                         canDeleteBackgroundChannel = false
                     }
                     
-                    // Nếu không thể xóa channel, bỏ qua việc cập nhật channel này
+                    // Nếu không thể xóa channel vì service đang chạy, tạm thời stop service
+                    if (!canDeleteBackgroundChannel && isUpdateCheckServiceRunning()) {
+                        wasServiceRunning = true
+                        android.util.Log.d("NotificationHelper", "Service is running, stopping temporarily to update channel")
+                        // Tạm thời stop service
+                        UpdateCheckService.stop(context)
+                        // Đợi một chút để service stop hoàn toàn
+                        Thread.sleep(500)
+                        // Thử xóa channel lại
+                        try {
+                            notificationManager.deleteNotificationChannel(CHANNEL_ID_BACKGROUND)
+                            canDeleteBackgroundChannel = true
+                            android.util.Log.d("NotificationHelper", "Successfully deleted BACKGROUND channel after stopping service")
+                        } catch (e: SecurityException) {
+                            android.util.Log.w("NotificationHelper", "Still cannot delete BACKGROUND channel: ${e.message}")
+                        }
+                    }
+                    
+                    // Nếu vẫn không thể xóa channel, bỏ qua việc cập nhật channel này
                     if (!canDeleteBackgroundChannel) {
                         android.util.Log.d("NotificationHelper", "Skipping BACKGROUND channel update (channel in use)")
                     } else {
@@ -321,9 +354,21 @@ class NotificationHelper(private val context: Context) {
                         notificationManager.createNotificationChannel(newBackgroundChannel)
                         android.util.Log.d("NotificationHelper", "Updated BACKGROUND channel sound: $soundUri")
                     }
+                    
+                    // Nếu đã stop service để cập nhật channel, start lại service
+                    if (wasServiceRunning && UpdateCheckService.hasBatteryOptimizationPermission(context)) {
+                        android.util.Log.d("NotificationHelper", "Restarting UpdateCheckService after channel update")
+                        // Đợi một chút để channel được tạo xong
+                        Thread.sleep(200)
+                        UpdateCheckService.startIfAllowed(context)
+                    }
                 } catch (e: Exception) {
                     android.util.Log.e("NotificationHelper", "Error updating BACKGROUND channel: ${e.message}", e)
                     // Không crash, chỉ log lỗi
+                    // Nếu đã stop service nhưng có lỗi, vẫn cố start lại
+                    if (wasServiceRunning && UpdateCheckService.hasBatteryOptimizationPermission(context)) {
+                        UpdateCheckService.startIfAllowed(context)
+                    }
                 }
             }
             

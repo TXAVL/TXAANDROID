@@ -216,6 +216,12 @@ class UpdateCheckService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         
+        // Lấy thông tin sound đang dùng TRƯỚC KHI tạo notification builder
+        val soundManager = NotificationSoundManager(this)
+        val soundUri = soundManager.getNotificationSoundUri()
+        val soundType = soundManager.getSoundType()
+        val soundDisplayName = soundManager.getSoundDisplayName()
+        
         val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID_BACKGROUND)
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
             .setContentIntent(openAppPendingIntent)
@@ -248,18 +254,14 @@ class UpdateCheckService : Service() {
             notificationBuilder
                 .setContentTitle("TXA Hub đang chạy nền")
                 .setContentText("Ứng dụng đang chạy nền để kiểm tra cập nhật")
+                // Set sound trực tiếp từ settings (override channel sound)
+                .setSound(soundUri)
                 .addAction(
                     android.R.drawable.ic_menu_close_clear_cancel,
                     "Ẩn thông báo",
                     hidePendingIntent
                 )
         }
-        
-        // Lấy thông tin sound đang dùng để log
-        val soundManager = NotificationSoundManager(this)
-        val soundUri = soundManager.getNotificationSoundUri()
-        val soundType = soundManager.getSoundType()
-        val soundDisplayName = soundManager.getSoundDisplayName()
         
         // Log thông tin notification và sound
         android.util.Log.d("UpdateCheckService", "=== Creating Background Notification ===")

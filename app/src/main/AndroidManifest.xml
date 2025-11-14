@@ -37,6 +37,10 @@
     
     <!-- Quyền full screen intent (Android 10+) để hiển thị notification ngay cả khi bật "Không làm phiền" -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    
+    <!-- Quyền thay đổi nhạc chuông và nhạc thông báo -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <application
         android:name=".TXAApplication"
