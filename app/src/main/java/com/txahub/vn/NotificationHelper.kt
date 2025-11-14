@@ -197,6 +197,18 @@ class NotificationHelper(private val context: Context) {
         NotificationManagerCompat.from(context).notify(NOTIFICATION_ID_UPDATE, notification)
         
         android.util.Log.d("NotificationHelper", "Notification sent successfully")
+        
+        // Đọc thông báo bằng TTS nếu được bật
+        val ttsManager = NotificationTTSManager(context)
+        if (ttsManager.isTTSEnabled()) {
+            // Khởi tạo TTS nếu chưa được khởi tạo
+            ttsManager.initialize { success ->
+                if (success && ttsManager.isAvailable()) {
+                    val textToRead = "$title. $message"
+                    ttsManager.speakNotification(textToRead, "update_notification_${System.currentTimeMillis()}")
+                }
+            }
+        }
     }
     
     /**
