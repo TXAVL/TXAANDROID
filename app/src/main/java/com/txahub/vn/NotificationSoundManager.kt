@@ -550,7 +550,7 @@ class NotificationSoundManager(private val context: Context) {
             } else {
                 // Android 9-: Copy vào thư mục Notifications và scan media
                 val notificationsDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_NOTIFICATIONS), displayName)
-                if (!notificationsDir.parentFile?.exists() == true) {
+                if (notificationsDir.parentFile?.exists() != true) {
                     notificationsDir.parentFile?.mkdirs()
                 }
                 
