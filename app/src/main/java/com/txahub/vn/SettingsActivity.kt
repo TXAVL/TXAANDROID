@@ -47,14 +47,19 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var androidAutoGroupingManager: AndroidAutoGroupingManager
     
     // Activity Result Launchers thay thế startActivityForResult (không còn dùng cho custom sound)
-    private val pickSoundLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+    private val pickSoundLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { _ ->
         // Không còn dùng nữa - đã xóa custom sound
     }
     
     // Launcher cho RingtoneManager (chọn nhạc chuông hệ thống)
     private val pickRingtoneLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) {
-            val uri = result.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI, Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                result.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            }
             if (uri != null) {
                 soundManager.setSoundType("system")
                 soundManager.setCustomSoundUri(null)

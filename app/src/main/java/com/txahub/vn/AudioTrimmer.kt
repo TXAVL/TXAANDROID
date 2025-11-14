@@ -91,7 +91,7 @@ class AudioTrimmer(private val context: Context) {
                 val bufferInfo = android.media.MediaCodec.BufferInfo()
                 
                 var isEOS = false
-                var presentationTimeUs: Long = 0
+                var presentationTimeUs = 0L
                 
                 while (!isEOS) {
                     buffer.clear()

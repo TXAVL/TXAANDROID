@@ -10,8 +10,8 @@ if (versionPropsFile.exists()) {
     versionProps.load(new FileInputStream(versionPropsFile))
 }
 
-def versionNameProp = versionProps['VERSION_NAME'] ?: '1.1_txa'
-def versionCodeProp = versionProps['VERSION_CODE'] ?: '11'
+def versionNameProp = versionProps['VERSION_NAME'] ?: '2.1_txa'
+def versionCodeProp = versionProps['VERSION_CODE'] ?: '162'
 
 android {
     namespace 'com.txahub.vn'
@@ -34,15 +34,7 @@ android {
             dimension "device"
             applicationIdSuffix ""
             versionNameSuffix ""
-            resValue "string", "app_name", "TXA Hub"
-        }
-        pc {
-            dimension "device"
-            applicationIdSuffix ".pc"
-            versionNameSuffix "_pc"
-            resValue "string", "app_name", "TXA Hub PC"
-            // PC có thể cần minSdk cao hơn cho desktop features
-            minSdk 26
+            resValue "string", "app_name", "TXA HUB SOCIAL APP"
         }
     }
 
@@ -74,6 +66,11 @@ dependencies {
     implementation 'com.google.android.material:material:1.10.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'androidx.webkit:webkit:1.9.0'
+    
+    // Credential Manager API for Passkey support
+    implementation 'androidx.credentials:credentials:1.2.2'
+    implementation 'androidx.credentials:credentials-play-services-auth:1.2.2'
+    implementation 'com.google.android.gms:play-services-auth:20.7.0'
     
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'

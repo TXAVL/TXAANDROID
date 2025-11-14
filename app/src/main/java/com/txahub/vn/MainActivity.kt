@@ -35,6 +35,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var logWriter: LogWriter
     private var networkMonitor: NetworkMonitor? = null
     private var filePathCallback: android.webkit.ValueCallback<Array<Uri>>? = null
+    private lateinit var passkeyManager: PasskeyManager
     
     // Activity Result Launchers cho permissions
     private val notificationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
@@ -100,6 +101,9 @@ class MainActivity : AppCompatActivity() {
 
         logWriter = LogWriter(this)
         logWriter.writeAppLog("MainActivity onCreate", "MainActivity", android.util.Log.INFO)
+        
+        // Khởi tạo PasskeyManager
+        passkeyManager = PasskeyManager(this)
         
         drawerLayout = findViewById(R.id.drawerLayout)
         webView = findViewById(R.id.webView)
@@ -250,6 +254,19 @@ class MainActivity : AppCompatActivity() {
 
         // Bật database storage
         webSettings.databaseEnabled = true
+        
+        // Bật WebView debugging (chỉ trong debug mode)
+        // BuildConfig được generate tự động, không cần import
+        try {
+            val buildConfigClass = Class.forName("com.txahub.vn.BuildConfig")
+            val debugField = buildConfigClass.getField("DEBUG")
+            val isDebug = debugField.getBoolean(null)
+            if (isDebug) {
+                WebView.setWebContentsDebuggingEnabled(true)
+            }
+        } catch (e: Exception) {
+            // Nếu không tìm thấy BuildConfig, mặc định không bật debugging trong release
+        }
 
         // Cho phép truy cập file
         webSettings.allowFileAccess = true
@@ -334,7 +351,9 @@ class MainActivity : AppCompatActivity() {
                 super.onReceivedError(view, request, error)
                 if (request?.isForMainFrame == true) {
                     val errorMessage = error?.description?.toString() ?: "Lỗi không xác định"
-                    logWriter.writeAppLog("WebView Error: $errorMessage\nURL: ${request?.url}", "MainActivity", android.util.Log.ERROR)
+                    // request không null ở đây vì đã check request?.isForMainFrame == true
+                    val requestUrl = request?.url?.toString() ?: "Unknown"
+                    logWriter.writeAppLog("WebView Error: $errorMessage\nURL: $requestUrl", "MainActivity", android.util.Log.ERROR)
                     
                     // Hiển thị trang lỗi tùy chỉnh
                     val errorHtml = """
@@ -392,6 +411,40 @@ class MainActivity : AppCompatActivity() {
             override fun onReceivedTitle(view: WebView?, title: String?) {
                 super.onReceivedTitle(view, title)
                 // Có thể cập nhật title của activity
+            }
+            
+            /**
+             * Xử lý console.log từ JavaScript và hiển thị trong Logcat
+             */
+            override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
+                consoleMessage?.let {
+                    val level = when (it.messageLevel()) {
+                        android.webkit.ConsoleMessage.MessageLevel.ERROR -> android.util.Log.ERROR
+                        android.webkit.ConsoleMessage.MessageLevel.WARNING -> android.util.Log.WARN
+                        android.webkit.ConsoleMessage.MessageLevel.LOG -> android.util.Log.INFO
+                        android.webkit.ConsoleMessage.MessageLevel.DEBUG -> android.util.Log.DEBUG
+                        else -> android.util.Log.INFO
+                    }
+                    
+                    val source = it.sourceId() ?: "unknown"
+                    val lineNumber = it.lineNumber()
+                    val message = it.message() ?: ""
+                    
+                    // Log vào Logcat với tag "WebViewConsole"
+                    android.util.Log.println(
+                        level,
+                        "WebViewConsole",
+                        "$message -- From line $lineNumber of $source"
+                    )
+                    
+                    // Cũng log vào file log của app
+                    logWriter.writeAppLog(
+                        "Console [$source:$lineNumber]: $message",
+                        "WebViewConsole",
+                        level
+                    )
+                }
+                return true
             }
             
             // Xử lý quyền truy cập file (ảnh/video)
@@ -608,6 +661,10 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         try {
             networkMonitor?.stopMonitoring()
+            // Cleanup PasskeyManager
+            if (::passkeyManager.isInitialized) {
+                passkeyManager.cleanup()
+            }
             webView.destroy()
             logWriter.writeAppLog("MainActivity onDestroy", "MainActivity", android.util.Log.INFO)
         } catch (e: Exception) {
@@ -868,6 +925,43 @@ class MainActivity : AppCompatActivity() {
                 packageInfo.versionName ?: "1.1_txa"
             } catch (e: Exception) {
                 "1.1_txa"
+            }
+        }
+        
+        /**
+         * Kiểm tra xem Passkey có được hỗ trợ không
+         * @return "supported" hoặc "not_supported"
+         */
+        @JavascriptInterface
+        fun isPasskeySupported(): String {
+            return if (passkeyManager.isPasskeySupported()) {
+                "supported"
+            } else {
+                "not_supported"
+            }
+        }
+        
+        /**
+         * Tạo Passkey mới (Registration)
+         * @param configJson JSON string chứa cấu hình Passkey từ web
+         * @param callback Tên callback function để nhận kết quả
+         */
+        @JavascriptInterface
+        fun createPasskey(configJson: String, callback: String) {
+            runOnUiThread {
+                passkeyManager.createPasskey(configJson, callback, webView)
+            }
+        }
+        
+        /**
+         * Lấy Passkey (Authentication)
+         * @param configJson JSON string chứa cấu hình Passkey từ web
+         * @param callback Tên callback function để nhận kết quả
+         */
+        @JavascriptInterface
+        fun getPasskey(configJson: String, callback: String) {
+            runOnUiThread {
+                passkeyManager.getPasskey(configJson, callback, webView)
             }
         }
     }

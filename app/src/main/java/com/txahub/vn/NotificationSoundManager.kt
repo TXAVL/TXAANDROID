@@ -638,11 +638,13 @@ class NotificationSoundManager(private val context: Context) {
                 val destFile = File(notificationsDir, "$displayName$extension")
                 soundFile.copyTo(destFile, overwrite = true)
                 
-                // Scan media để hệ thống nhận diện
-                val mediaScanIntent = android.content.Intent(android.content.Intent.ACTION_MEDIA_SCANNER_SCAN_FILE).apply {
-                    data = Uri.fromFile(destFile)
-                }
-                context.sendBroadcast(mediaScanIntent)
+                // Scan media để hệ thống nhận diện (sử dụng MediaScannerConnection thay vì deprecated ACTION_MEDIA_SCANNER_SCAN_FILE)
+                android.media.MediaScannerConnection.scanFile(
+                    context,
+                    arrayOf(destFile.absolutePath),
+                    arrayOf(if (extension == ".wav") "audio/wav" else "audio/mpeg"),
+                    null
+                )
                 
                 android.util.Log.d("NotificationSoundManager", "Added app sound to notifications folder: ${destFile.absolutePath}")
                 return Uri.fromFile(destFile)
@@ -660,6 +662,7 @@ class NotificationSoundManager(private val context: Context) {
      * @deprecated Sử dụng addAllAppSoundsToMediaStore() thay thế
      */
     @Deprecated("Use addAllAppSoundsToMediaStore() instead")
+    @Suppress("UNUSED_PARAMETER")
     fun addAppSoundToMediaStore(sourceUri: Uri?, displayName: String): Uri? {
         // Gọi addAllAppSoundsToMediaStore để thêm tất cả file
         addAllAppSoundsToMediaStore()

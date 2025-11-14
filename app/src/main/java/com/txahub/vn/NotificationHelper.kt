@@ -241,6 +241,7 @@ class NotificationHelper(private val context: Context) {
      */
     private fun isUpdateCheckServiceRunning(): Boolean {
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        @Suppress("DEPRECATION") // getRunningServices is deprecated but still needed for checking service status
         val runningServices = activityManager.getRunningServices(Integer.MAX_VALUE)
         return runningServices.any { it.service.className == UpdateCheckService::class.java.name }
     }
