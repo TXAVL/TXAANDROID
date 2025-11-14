@@ -24,8 +24,8 @@ class NotificationSoundManager(private val context: Context) {
         private const val CUSTOM_SOUND_FOLDER = "notification_sounds_custom" // Folder cho sound tùy chỉnh
         
         // Giới hạn file nhạc chuông
-        const val MAX_SOUND_DURATION_MS = 5000L // 5 giây
-        private const val MAX_SOUND_SIZE_BYTES = 500 * 1024 // 500KB
+        const val MAX_SOUND_DURATION_MS = 45_000L // 45 giây
+        private const val MAX_SOUND_SIZE_BYTES = 5 * 1024 * 1024 // 5MB
         private val ALLOWED_MIME_TYPES = listOf(
             "audio/mpeg",
             "audio/mp3",

@@ -66,6 +66,9 @@ class NotificationHelper(private val context: Context) {
                 enableVibration(false)
                 enableLights(false)
                 setShowBadge(false)
+                // Đặt sound cho background channel từ settings
+                val soundUri = soundManager.getNotificationSoundUri()
+                setSound(soundUri, null)
             }
             
             notificationManager.createNotificationChannel(updateChannel)
@@ -166,8 +169,31 @@ class NotificationHelper(private val context: Context) {
             notificationBuilder.setLargeIcon(it)
         }
         
+        // Lấy thông tin sound đang dùng để log
+        val soundUri = soundManager.getNotificationSoundUri()
+        val soundType = soundManager.getSoundType()
+        val soundDisplayName = soundManager.getSoundDisplayName()
+        
+        // Log thông tin notification và sound
+        android.util.Log.d("NotificationHelper", "=== Sending Update Notification ===")
+        android.util.Log.d("NotificationHelper", "Channel: $CHANNEL_ID_UPDATE")
+        android.util.Log.d("NotificationHelper", "Sound type: $soundType")
+        android.util.Log.d("NotificationHelper", "Sound URI: $soundUri")
+        android.util.Log.d("NotificationHelper", "Sound display name: $soundDisplayName")
+        android.util.Log.d("NotificationHelper", "Force update: $forceUpdate")
+        
+        // Ghi log vào file
+        val logWriter = LogWriter(context)
+        logWriter.writeAppLog(
+            "Sending update notification - Channel: $CHANNEL_ID_UPDATE, Sound type: $soundType, Sound URI: $soundUri, Sound name: $soundDisplayName",
+            "NotificationHelper",
+            android.util.Log.INFO
+        )
+        
         val notification = notificationBuilder.build()
         NotificationManagerCompat.from(context).notify(NOTIFICATION_ID_UPDATE, notification)
+        
+        android.util.Log.d("NotificationHelper", "Notification sent successfully")
     }
     
     /**
@@ -184,26 +210,35 @@ class NotificationHelper(private val context: Context) {
     fun updateNotificationChannelSound() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            val existingChannel = notificationManager.getNotificationChannel(CHANNEL_ID_UPDATE)
+            val soundUri = soundManager.getNotificationSoundUri()
+            val soundType = soundManager.getSoundType()
+            val soundDisplayName = soundManager.getSoundDisplayName()
             
-            if (existingChannel != null) {
+            // Log thông tin sound
+            android.util.Log.d("NotificationHelper", "Updating notification channels sound:")
+            android.util.Log.d("NotificationHelper", "  - Sound type: $soundType")
+            android.util.Log.d("NotificationHelper", "  - Sound URI: $soundUri")
+            android.util.Log.d("NotificationHelper", "  - Sound display name: $soundDisplayName")
+            
+            // Update UPDATE channel
+            val existingUpdateChannel = notificationManager.getNotificationChannel(CHANNEL_ID_UPDATE)
+            if (existingUpdateChannel != null) {
                 // Lưu lại các settings quan trọng trước khi xóa
-                val importance = existingChannel.importance
+                val importance = existingUpdateChannel.importance
                 val bypassDnd = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    existingChannel.canBypassDnd()
+                    existingUpdateChannel.canBypassDnd()
                 } else {
                     false
                 }
-                val vibrationEnabled = existingChannel.shouldVibrate()
-                val lightsEnabled = existingChannel.shouldShowLights()
-                val showBadge = existingChannel.canShowBadge()
+                val vibrationEnabled = existingUpdateChannel.shouldVibrate()
+                val lightsEnabled = existingUpdateChannel.shouldShowLights()
+                val showBadge = existingUpdateChannel.canShowBadge()
                 
                 // Xóa channel cũ
                 notificationManager.deleteNotificationChannel(CHANNEL_ID_UPDATE)
                 
                 // Tạo channel mới với sound mới
-                val soundUri = soundManager.getNotificationSoundUri()
-                val newChannel = NotificationChannel(
+                val newUpdateChannel = NotificationChannel(
                     CHANNEL_ID_UPDATE,
                     CHANNEL_NAME_UPDATE,
                     importance
@@ -221,11 +256,43 @@ class NotificationHelper(private val context: Context) {
                 }
                 
                 // Tạo channel mới
-                notificationManager.createNotificationChannel(newChannel)
+                notificationManager.createNotificationChannel(newUpdateChannel)
+                android.util.Log.d("NotificationHelper", "Updated UPDATE channel sound: $soundUri")
+            }
+            
+            // Update BACKGROUND channel
+            val existingBackgroundChannel = notificationManager.getNotificationChannel(CHANNEL_ID_BACKGROUND)
+            if (existingBackgroundChannel != null) {
+                // Lưu lại các settings quan trọng trước khi xóa
+                val importance = existingBackgroundChannel.importance
+                val vibrationEnabled = existingBackgroundChannel.shouldVibrate()
+                val lightsEnabled = existingBackgroundChannel.shouldShowLights()
+                val showBadge = existingBackgroundChannel.canShowBadge()
                 
-                android.util.Log.d("NotificationHelper", "Updated notification channel sound: $soundUri")
-            } else {
-                // Nếu channel chưa tồn tại, tạo mới
+                // Xóa channel cũ
+                notificationManager.deleteNotificationChannel(CHANNEL_ID_BACKGROUND)
+                
+                // Tạo channel mới với sound mới
+                val newBackgroundChannel = NotificationChannel(
+                    CHANNEL_ID_BACKGROUND,
+                    CHANNEL_NAME_BACKGROUND,
+                    importance
+                ).apply {
+                    description = "Thông báo ứng dụng đang chạy nền, cái này khuyến nghị không nên tắt"
+                    enableVibration(vibrationEnabled)
+                    enableLights(lightsEnabled)
+                    setShowBadge(showBadge)
+                    // Đặt sound mới
+                    setSound(soundUri, null)
+                }
+                
+                // Tạo channel mới
+                notificationManager.createNotificationChannel(newBackgroundChannel)
+                android.util.Log.d("NotificationHelper", "Updated BACKGROUND channel sound: $soundUri")
+            }
+            
+            // Nếu cả 2 channels đều chưa tồn tại, tạo mới
+            if (existingUpdateChannel == null && existingBackgroundChannel == null) {
                 createNotificationChannels()
             }
         }

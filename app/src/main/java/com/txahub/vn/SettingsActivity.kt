@@ -215,12 +215,13 @@ class SettingsActivity : AppCompatActivity() {
         // Hỏi người dùng muốn mở loại log nào
         AlertDialog.Builder(this)
             .setTitle("Chọn loại log")
-            .setItems(arrayOf("App Log", "Crash Log", "API Log", "Update Check Log")) { _, which ->
+            .setItems(arrayOf("App Log", "Crash Log", "API Log", "Update Check Log", "Log nhạc chuông")) { _, which ->
                 when (which) {
                     0 -> showLogViewer("app")
                     1 -> showLogViewer("crash")
                     2 -> showLogViewer("api")
                     3 -> showLogViewer("updatecheck")
+                    4 -> showSoundLogViewer()
                 }
             }
             .setNegativeButton("Hủy", null)
@@ -302,6 +303,103 @@ class SettingsActivity : AppCompatActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(this, "Lỗi khi đọc file log: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    /**
+     * Hiển thị log về nhạc chuông (lọc từ App Log và Update Check Log)
+     */
+    private fun showSoundLogViewer() {
+        try {
+            val logFolder = logWriter.getLogFolder()
+            if (!logFolder.exists() || !logFolder.isDirectory) {
+                Toast.makeText(this, "Không tìm thấy thư mục log", Toast.LENGTH_SHORT).show()
+                return
+            }
+            
+            // Lấy tất cả file log App và Update Check
+            val appLogFiles = logFolder.listFiles { file ->
+                file.isFile && file.name.startsWith("TXAAPP_app_") && file.name.endsWith(".txa")
+            }?.sortedByDescending { it.lastModified() }?.take(5) ?: emptyList()
+            
+            val updateCheckLogFiles = logFolder.listFiles { file ->
+                file.isFile && file.name.startsWith("TXAAPP_updatecheck_") && file.name.endsWith(".txa")
+            }?.sortedByDescending { it.lastModified() }?.take(5) ?: emptyList()
+            
+            // Đọc và lọc các dòng liên quan đến sound
+            val soundLogLines = mutableListOf<String>()
+            val keywords = listOf("Sound", "sound", "nhạc chuông", "notification", "channel", "URI", "NotificationHelper", "UpdateCheckService")
+            
+            // Đọc từ App Log
+            appLogFiles.forEach { file ->
+                try {
+                    val lines = file.readLines()
+                    lines.forEachIndexed { index, line ->
+                        if (keywords.any { line.contains(it, ignoreCase = true) }) {
+                            soundLogLines.add("[${file.name}] Line ${index + 1}: $line")
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("SettingsActivity", "Error reading ${file.name}", e)
+                }
+            }
+            
+            // Đọc từ Update Check Log
+            updateCheckLogFiles.forEach { file ->
+                try {
+                    val lines = file.readLines()
+                    lines.forEachIndexed { index, line ->
+                        if (keywords.any { line.contains(it, ignoreCase = true) }) {
+                            soundLogLines.add("[${file.name}] Line ${index + 1}: $line")
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("SettingsActivity", "Error reading ${file.name}", e)
+                }
+            }
+            
+            if (soundLogLines.isEmpty()) {
+                Toast.makeText(this, "Không tìm thấy log về nhạc chuông", Toast.LENGTH_SHORT).show()
+                return
+            }
+            
+            // Sắp xếp theo thời gian (dòng mới nhất lên đầu)
+            soundLogLines.reverse()
+            
+            // Tạo dialog với custom view
+            val dialogView = layoutInflater.inflate(R.layout.dialog_log_viewer, null)
+            val tvLogTitle = dialogView.findViewById<TextView>(R.id.tvLogTitle)
+            val tvLogContent = dialogView.findViewById<TextView>(R.id.tvLogContent)
+            val tvLineCount = dialogView.findViewById<TextView>(R.id.tvLineCount)
+            val btnClose = dialogView.findViewById<Button>(R.id.btnClose)
+            
+            tvLogTitle.text = "Log nhạc chuông (đã lọc)"
+            
+            // Hiển thị nội dung
+            val content = soundLogLines.joinToString("\n")
+            tvLogContent.text = content
+            tvLineCount.text = "Tổng số dòng: ${soundLogLines.size}"
+            
+            val dialog = AlertDialog.Builder(this)
+                .setView(dialogView)
+                .create()
+            
+            btnClose.setOnClickListener {
+                dialog.dismiss()
+            }
+            
+            dialog.show()
+            
+            // Đặt kích thước dialog
+            val window = dialog.window
+            window?.setLayout(
+                (resources.displayMetrics.widthPixels * 0.9).toInt(),
+                (resources.displayMetrics.heightPixels * 0.8).toInt()
+            )
+            
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(this, "Lỗi khi đọc log nhạc chuông: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -741,8 +839,8 @@ class SettingsActivity : AppCompatActivity() {
             .setMessage("""
                 Yêu cầu file nhạc chuông:
                 • Định dạng: MP3, WAV
-                • Kích thước tối đa: 500KB
-                • Thời lượng tối đa: 5 giây
+                • Kích thước tối đa: 5MB
+                • Thời lượng tối đa: 45 giây
                 
                 Bạn có muốn tiếp tục chọn file?
             """.trimIndent())

@@ -97,9 +97,82 @@ class SplashActivity : AppCompatActivity() {
 
     private fun showForceUpdateDialog(updateInfo: UpdateInfo) {
         runOnUiThread {
+            // Tạo custom view với ScrollView và WebView để hiển thị changelog HTML
+            val scrollView = android.widget.ScrollView(this)
+            val linearLayout = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                setPadding(50, 30, 50, 30)
+            }
+            
+            // Thông tin phiên bản
+            val tvInfo = android.widget.TextView(this).apply {
+                text = "Phiên bản mới: ${updateInfo.versionName}\nNgày phát hành: ${updateInfo.releaseDate}"
+                textSize = 14f
+                setPadding(0, 0, 0, 16)
+            }
+            linearLayout.addView(tvInfo)
+            
+            // Changelog
+            if (updateInfo.changelog.isNotBlank()) {
+                val tvChangelogTitle = android.widget.TextView(this).apply {
+                    text = "Có gì mới trong bản này:"
+                    textSize = 16f
+                    setTypeface(null, android.graphics.Typeface.BOLD)
+                    setPadding(0, 0, 0, 8)
+                }
+                linearLayout.addView(tvChangelogTitle)
+                
+                // Sử dụng WebView để hiển thị HTML changelog
+                val webView = android.webkit.WebView(this).apply {
+                    settings.javaScriptEnabled = false
+                    settings.domStorageEnabled = false
+                    settings.loadsImagesAutomatically = false
+                    isVerticalScrollBarEnabled = false
+                    isHorizontalScrollBarEnabled = false
+                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        height = (resources.displayMetrics.heightPixels * 0.3).toInt()
+                    }
+                    
+                    // Load HTML changelog
+                    val htmlContent = """
+                        <html>
+                        <head>
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            <style>
+                                body { 
+                                    font-family: Arial, sans-serif; 
+                                    font-size: 14px; 
+                                    color: #333; 
+                                    padding: 8px;
+                                    margin: 0;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            ${updateInfo.changelog}
+                        </body>
+                        </html>
+                    """.trimIndent()
+                    loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null)
+                }
+                linearLayout.addView(webView)
+            }
+            
+            val tvFooter = android.widget.TextView(this).apply {
+                text = "\nVui lòng cập nhật để tiếp tục sử dụng."
+                textSize = 14f
+                setPadding(0, 16, 0, 0)
+            }
+            linearLayout.addView(tvFooter)
+            
+            scrollView.addView(linearLayout)
+            
             AlertDialog.Builder(this)
                 .setTitle("Cập nhật bắt buộc")
-                .setMessage("Phiên bản mới ${updateInfo.versionName} đã có sẵn. Vui lòng cập nhật để tiếp tục sử dụng.")
+                .setView(scrollView)
                 .setCancelable(false) // Không cho phép đóng bằng nút back
                 .setPositiveButton("Tải ngay") { _, _ ->
                     // Mở trình duyệt đến link tải
@@ -135,9 +208,82 @@ class SplashActivity : AppCompatActivity() {
                 return@runOnUiThread
             }
             
+            // Tạo custom view với ScrollView và WebView để hiển thị changelog HTML
+            val scrollView = android.widget.ScrollView(this)
+            val linearLayout = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                setPadding(50, 30, 50, 30)
+            }
+            
+            // Thông tin phiên bản
+            val tvInfo = android.widget.TextView(this).apply {
+                text = "Phiên bản: ${updateInfo.versionName}\nNgày phát hành: ${updateInfo.releaseDate}"
+                textSize = 14f
+                setPadding(0, 0, 0, 16)
+            }
+            linearLayout.addView(tvInfo)
+            
+            // Changelog
+            if (updateInfo.changelog.isNotBlank()) {
+                val tvChangelogTitle = android.widget.TextView(this).apply {
+                    text = "Có gì mới trong bản này:"
+                    textSize = 16f
+                    setTypeface(null, android.graphics.Typeface.BOLD)
+                    setPadding(0, 0, 0, 8)
+                }
+                linearLayout.addView(tvChangelogTitle)
+                
+                // Sử dụng WebView để hiển thị HTML changelog
+                val webView = android.webkit.WebView(this).apply {
+                    settings.javaScriptEnabled = false
+                    settings.domStorageEnabled = false
+                    settings.loadsImagesAutomatically = false
+                    isVerticalScrollBarEnabled = false
+                    isHorizontalScrollBarEnabled = false
+                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        height = (resources.displayMetrics.heightPixels * 0.3).toInt()
+                    }
+                    
+                    // Load HTML changelog
+                    val htmlContent = """
+                        <html>
+                        <head>
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            <style>
+                                body { 
+                                    font-family: Arial, sans-serif; 
+                                    font-size: 14px; 
+                                    color: #333; 
+                                    padding: 8px;
+                                    margin: 0;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            ${updateInfo.changelog}
+                        </body>
+                        </html>
+                    """.trimIndent()
+                    loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null)
+                }
+                linearLayout.addView(webView)
+            }
+            
+            val tvFooter = android.widget.TextView(this).apply {
+                text = "\nBạn có muốn tải về không?\nBấm vào sẽ mở link và tải thủ công!"
+                textSize = 14f
+                setPadding(0, 16, 0, 0)
+            }
+            linearLayout.addView(tvFooter)
+            
+            scrollView.addView(linearLayout)
+            
             AlertDialog.Builder(this)
                 .setTitle("Có bản cập nhật mới")
-                .setMessage("Phiên bản ${updateInfo.versionName} đã có sẵn.\n\nNgày phát hành: ${updateInfo.releaseDate}\n\nBạn có muốn tải về không?Bấm vào sẽ mở link và tải thủ công!")
+                .setView(scrollView)
                 .setCancelable(true) // Cho phép đóng bằng nút back
                 .setPositiveButton("Tải ngay") { _, _ ->
                     // Mở trình duyệt đến link tải

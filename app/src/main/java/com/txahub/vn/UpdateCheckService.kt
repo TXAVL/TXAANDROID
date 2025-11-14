@@ -255,10 +255,32 @@ class UpdateCheckService : Service() {
                 )
         }
         
+        // Lấy thông tin sound đang dùng để log
+        val soundManager = NotificationSoundManager(this)
+        val soundUri = soundManager.getNotificationSoundUri()
+        val soundType = soundManager.getSoundType()
+        val soundDisplayName = soundManager.getSoundDisplayName()
+        
+        // Log thông tin notification và sound
+        android.util.Log.d("UpdateCheckService", "=== Creating Background Notification ===")
+        android.util.Log.d("UpdateCheckService", "Channel: $CHANNEL_ID_BACKGROUND")
+        android.util.Log.d("UpdateCheckService", "Sound type: $soundType")
+        android.util.Log.d("UpdateCheckService", "Sound URI: $soundUri")
+        android.util.Log.d("UpdateCheckService", "Sound display name: $soundDisplayName")
+        android.util.Log.d("UpdateCheckService", "Hide notification: $hideNotification")
+        
+        // Ghi log vào file
+        logWriter.writeUpdateCheckLog(
+            "Creating background notification - Channel: $CHANNEL_ID_BACKGROUND, Sound type: $soundType, Sound URI: $soundUri, Sound name: $soundDisplayName, Hide: $hideNotification",
+            "INFO"
+        )
+        
         val notification = notificationBuilder.build()
         
         // QUAN TRỌNG: LUÔN phải gọi startForeground() khi dùng startForegroundService()
         startForeground(NOTIFICATION_ID_BACKGROUND, notification)
+        
+        android.util.Log.d("UpdateCheckService", "Background notification created successfully")
     }
     
     /**
@@ -270,7 +292,17 @@ class UpdateCheckService : Service() {
             val existingChannel = notificationManager.getNotificationChannel(CHANNEL_ID_BACKGROUND)
             
             if (existingChannel == null) {
-                // Channel chưa tồn tại, tạo mới
+                // Channel chưa tồn tại, tạo mới với sound từ settings
+                val soundManager = NotificationSoundManager(this)
+                val soundUri = soundManager.getNotificationSoundUri()
+                val soundType = soundManager.getSoundType()
+                val soundDisplayName = soundManager.getSoundDisplayName()
+                
+                android.util.Log.d("UpdateCheckService", "Creating BACKGROUND channel with sound:")
+                android.util.Log.d("UpdateCheckService", "  - Sound type: $soundType")
+                android.util.Log.d("UpdateCheckService", "  - Sound URI: $soundUri")
+                android.util.Log.d("UpdateCheckService", "  - Sound display name: $soundDisplayName")
+                
                 val channel = NotificationChannel(
                     CHANNEL_ID_BACKGROUND,
                     CHANNEL_NAME_BACKGROUND,
@@ -280,8 +312,15 @@ class UpdateCheckService : Service() {
                     enableVibration(false)
                     enableLights(false)
                     setShowBadge(false)
+                    // Đặt sound từ settings
+                    setSound(soundUri, null)
                 }
                 notificationManager.createNotificationChannel(channel)
+                
+                logWriter.writeUpdateCheckLog(
+                    "Created BACKGROUND channel - Sound type: $soundType, Sound URI: $soundUri, Sound name: $soundDisplayName",
+                    "INFO"
+                )
             }
         }
     }
