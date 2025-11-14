@@ -18,6 +18,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -39,6 +40,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var btnChangeNotificationSound: Button
     private lateinit var soundManager: NotificationSoundManager
     private lateinit var audioTrimmer: AudioTrimmer
+    private lateinit var logSettingsManager: LogSettingsManager
     private val REQUEST_CODE_PICK_SOUND = 3001
     private val REQUEST_CODE_PICK_SOUND_FOR_DEFAULT = 3002
     private var selectedSoundUri: Uri? = null
@@ -52,11 +54,13 @@ class SettingsActivity : AppCompatActivity() {
         speedTest = SpeedTest(this)
         soundManager = NotificationSoundManager(this)
         audioTrimmer = AudioTrimmer(this)
+        logSettingsManager = LogSettingsManager(this)
         
         setupViews()
         loadVersionInfo()
         loadPermissions()
         loadNotificationSoundSettings()
+        loadLogSettings()
     }
     
     private fun setupViews() {
@@ -93,6 +97,98 @@ class SettingsActivity : AppCompatActivity() {
         btnChangeNotificationSound = findViewById(R.id.btnChangeNotificationSound)
         btnChangeNotificationSound.setOnClickListener {
             showNotificationSoundDialog()
+        }
+        
+        // Log settings
+        setupLogSettings()
+    }
+    
+    /**
+     * Setup log settings UI
+     */
+    private fun setupLogSettings() {
+        val switchLogApi = findViewById<SwitchCompat>(R.id.switchLogApi)
+        val switchLogApp = findViewById<SwitchCompat>(R.id.switchLogApp)
+        val switchLogCrash = findViewById<SwitchCompat>(R.id.switchLogCrash)
+        val switchLogUpdateCheck = findViewById<SwitchCompat>(R.id.switchLogUpdateCheck)
+        val btnResetLogSettings = findViewById<Button>(R.id.btnResetLogSettings)
+        
+        // Lắng nghe thay đổi
+        switchLogApi.setOnCheckedChangeListener { _, isChecked ->
+            logSettingsManager.setApiLogEnabled(isChecked)
+            Toast.makeText(this, if (isChecked) "Đã bật Log API" else "Đã tắt Log API", Toast.LENGTH_SHORT).show()
+        }
+        
+        switchLogApp.setOnCheckedChangeListener { _, isChecked ->
+            logSettingsManager.setAppLogEnabled(isChecked)
+            Toast.makeText(this, if (isChecked) "Đã bật Log ứng dụng" else "Đã tắt Log ứng dụng", Toast.LENGTH_SHORT).show()
+        }
+        
+        switchLogCrash.setOnCheckedChangeListener { _, isChecked ->
+            logSettingsManager.setCrashLogEnabled(isChecked)
+            Toast.makeText(this, if (isChecked) "Đã bật Log Crash" else "Đã tắt Log Crash", Toast.LENGTH_SHORT).show()
+        }
+        
+        switchLogUpdateCheck.setOnCheckedChangeListener { _, isChecked ->
+            logSettingsManager.setUpdateCheckLogEnabled(isChecked)
+            Toast.makeText(this, if (isChecked) "Đã bật Log Update Check" else "Đã tắt Log Update Check", Toast.LENGTH_SHORT).show()
+        }
+        
+        // Nút reset
+        btnResetLogSettings.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Đặt lại mặc định")
+                .setMessage("Bạn có chắc muốn đặt lại tất cả cài đặt log về mặc định (bật tất cả)?")
+                .setPositiveButton("Đặt lại") { _, _ ->
+                    logSettingsManager.resetToDefaults()
+                    loadLogSettings()
+                    Toast.makeText(this, "Đã đặt lại mặc định", Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton("Hủy", null)
+                .show()
+        }
+    }
+    
+    /**
+     * Load và hiển thị log settings
+     */
+    private fun loadLogSettings() {
+        val switchLogApi = findViewById<SwitchCompat>(R.id.switchLogApi)
+        val switchLogApp = findViewById<SwitchCompat>(R.id.switchLogApp)
+        val switchLogCrash = findViewById<SwitchCompat>(R.id.switchLogCrash)
+        val switchLogUpdateCheck = findViewById<SwitchCompat>(R.id.switchLogUpdateCheck)
+        
+        // Tắt listener tạm thời để tránh trigger khi set giá trị
+        switchLogApi.setOnCheckedChangeListener(null)
+        switchLogApp.setOnCheckedChangeListener(null)
+        switchLogCrash.setOnCheckedChangeListener(null)
+        switchLogUpdateCheck.setOnCheckedChangeListener(null)
+        
+        // Set giá trị
+        switchLogApi.isChecked = logSettingsManager.isApiLogEnabled()
+        switchLogApp.isChecked = logSettingsManager.isAppLogEnabled()
+        switchLogCrash.isChecked = logSettingsManager.isCrashLogEnabled()
+        switchLogUpdateCheck.isChecked = logSettingsManager.isUpdateCheckLogEnabled()
+        
+        // Bật lại listener
+        switchLogApi.setOnCheckedChangeListener { _, isChecked ->
+            logSettingsManager.setApiLogEnabled(isChecked)
+            Toast.makeText(this, if (isChecked) "Đã bật Log API" else "Đã tắt Log API", Toast.LENGTH_SHORT).show()
+        }
+        
+        switchLogApp.setOnCheckedChangeListener { _, isChecked ->
+            logSettingsManager.setAppLogEnabled(isChecked)
+            Toast.makeText(this, if (isChecked) "Đã bật Log ứng dụng" else "Đã tắt Log ứng dụng", Toast.LENGTH_SHORT).show()
+        }
+        
+        switchLogCrash.setOnCheckedChangeListener { _, isChecked ->
+            logSettingsManager.setCrashLogEnabled(isChecked)
+            Toast.makeText(this, if (isChecked) "Đã bật Log Crash" else "Đã tắt Log Crash", Toast.LENGTH_SHORT).show()
+        }
+        
+        switchLogUpdateCheck.setOnCheckedChangeListener { _, isChecked ->
+            logSettingsManager.setUpdateCheckLogEnabled(isChecked)
+            Toast.makeText(this, if (isChecked) "Đã bật Log Update Check" else "Đã tắt Log Update Check", Toast.LENGTH_SHORT).show()
         }
     }
     

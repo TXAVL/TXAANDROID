@@ -42,6 +42,12 @@ class LogWriter(private val context: Context) {
      * Ghi log API response vào file
      */
     fun writeApiLog(response: String, apiUrl: String = "") {
+        // Kiểm tra xem log API có được bật không
+        val logSettings = LogSettingsManager(context)
+        if (!logSettings.isApiLogEnabled()) {
+            return
+        }
+        
         if (!hasWritePermission()) {
             // Hiển thị toast nếu chưa cấp quyền
             android.os.Handler(android.os.Looper.getMainLooper()).post {
@@ -203,6 +209,12 @@ class LogWriter(private val context: Context) {
      * Ghi log cho UpdateCheckService (theo ngày)
      */
     fun writeUpdateCheckLog(message: String, level: String = "INFO") {
+        // Kiểm tra xem log Update Check có được bật không
+        val logSettings = LogSettingsManager(context)
+        if (!logSettings.isUpdateCheckLogEnabled()) {
+            return
+        }
+        
         if (!hasWritePermission()) {
             return
         }
@@ -272,6 +284,12 @@ class LogWriter(private val context: Context) {
      * Ghi log ứng dụng (exceptions, errors, info, warnings)
      */
     fun writeAppLog(message: String, tag: String = "APP", level: Int = android.util.Log.INFO) {
+        // Kiểm tra xem log App có được bật không
+        val logSettings = LogSettingsManager(context)
+        if (!logSettings.isAppLogEnabled()) {
+            return
+        }
+        
         if (!hasWritePermission()) {
             return
         }
@@ -321,6 +339,12 @@ class LogWriter(private val context: Context) {
      * Ghi log crash riêng
      */
     fun writeCrashLog(crashInfo: String) {
+        // Kiểm tra xem log Crash có được bật không
+        val logSettings = LogSettingsManager(context)
+        if (!logSettings.isCrashLogEnabled()) {
+            return
+        }
+        
         if (!hasWritePermission()) {
             return
         }

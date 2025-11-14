@@ -9,5 +9,15 @@
     <external-path
         name="external_log_files"
         path="TXAAPP/" />
+    
+    <!-- Cho phép truy cập file notification sounds -->
+    <external-files-path
+        name="notification_sounds"
+        path="notification_sounds/" />
+    
+    <!-- Cho phép truy cập file notification sounds custom -->
+    <external-files-path
+        name="notification_sounds_custom"
+        path="notification_sounds_custom/" />
 </paths>
 

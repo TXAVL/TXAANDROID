@@ -44,6 +44,9 @@ class MainActivity : AppCompatActivity() {
         drawerLayout = findViewById(R.id.drawerLayout)
         webView = findViewById(R.id.webView)
         
+        // Hiển thị toast khi khởi động
+        android.widget.Toast.makeText(this, "©️POWER BY TXA!", android.widget.Toast.LENGTH_SHORT).show()
+        
         try {
             setupSidebar()
             setupWebView()

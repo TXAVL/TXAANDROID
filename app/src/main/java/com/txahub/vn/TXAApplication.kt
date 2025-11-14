@@ -22,6 +22,9 @@ class TXAApplication : Application() {
         // Khởi tạo sound mặc định của app từ raw resource
         initializeDefaultNotificationSound()
         
+        // Cập nhật notification channel sound để đảm bảo sound đúng ngay từ đầu
+        NotificationHelper(this).updateNotificationChannelSound()
+        
         // Log app start
         logWriter.writeAppLog("App Started", "Application onCreate", Log.INFO)
     }

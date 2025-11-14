@@ -35,6 +35,17 @@
                 android:src="@drawable/ic_menu_hamburger"
                 android:contentDescription="Menu"
                 android:tint="@color/white" />
+            
+            <TextView
+                android:id="@+id/tvCopyright"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="©️POWER BY TXA!"
+                android:textColor="@color/white"
+                android:textSize="12sp"
+                android:gravity="center"
+                android:textStyle="bold" />
         </LinearLayout>
         
         <!-- WebView below header -->

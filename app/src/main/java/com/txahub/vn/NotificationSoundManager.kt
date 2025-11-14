@@ -6,6 +6,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -131,7 +132,18 @@ class NotificationSoundManager(private val context: Context) {
             soundFiles[0]
         }
         
-        return Uri.fromFile(selectedFile)
+        // Sử dụng FileProvider để tạo content:// URI (bắt buộc từ Android 7.0+)
+        return try {
+            FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                selectedFile
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("NotificationSoundManager", "Error getting URI from FileProvider", e)
+            // Fallback: thử dùng Uri.fromFile (có thể không hoạt động trên Android 7.0+)
+            Uri.fromFile(selectedFile)
+        }
     }
     
     /**
@@ -270,8 +282,18 @@ class NotificationSoundManager(private val context: Context) {
                 }
             }
             
-            // Trả về URI của file đã copy
-            Uri.fromFile(destFile)
+            // Trả về URI của file đã copy (dùng FileProvider)
+            try {
+                FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    destFile
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("NotificationSoundManager", "Error getting URI from FileProvider", e)
+                // Fallback
+                Uri.fromFile(destFile)
+            }
         } catch (e: Exception) {
             android.util.Log.e("NotificationSoundManager", "Error copying sound file", e)
             null
@@ -300,7 +322,16 @@ class NotificationSoundManager(private val context: Context) {
             
             // Nếu file đã tồn tại, không copy lại
             if (destFile.exists()) {
-                return Uri.fromFile(destFile)
+                return try {
+                    FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        destFile
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.e("NotificationSoundManager", "Error getting URI from FileProvider", e)
+                    Uri.fromFile(destFile)
+                }
             }
             
             // Copy từ raw resource
@@ -313,8 +344,18 @@ class NotificationSoundManager(private val context: Context) {
                 }
             }
             
-            // Trả về URI của file đã copy
-            Uri.fromFile(destFile)
+            // Trả về URI của file đã copy (dùng FileProvider)
+            try {
+                FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    destFile
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("NotificationSoundManager", "Error getting URI from FileProvider", e)
+                // Fallback
+                Uri.fromFile(destFile)
+            }
         } catch (e: Exception) {
             android.util.Log.e("NotificationSoundManager", "Error copying raw sound file", e)
             null
@@ -353,8 +394,18 @@ class NotificationSoundManager(private val context: Context) {
                 }
             }
             
-            // Trả về URI của file đã copy
-            Uri.fromFile(destFile)
+            // Trả về URI của file đã copy (dùng FileProvider)
+            try {
+                FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    destFile
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("NotificationSoundManager", "Error getting URI from FileProvider", e)
+                // Fallback
+                Uri.fromFile(destFile)
+            }
         } catch (e: Exception) {
             android.util.Log.e("NotificationSoundManager", "Error copying sound to default folder", e)
             null

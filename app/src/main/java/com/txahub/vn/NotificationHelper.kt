@@ -179,17 +179,54 @@ class NotificationHelper(private val context: Context) {
     
     /**
      * Cập nhật sound cho notification channel
+     * Trên Android 8.0+, không thể update channel đã tồn tại, phải xóa và tạo lại
      */
     fun updateNotificationChannelSound() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            val channel = notificationManager.getNotificationChannel(CHANNEL_ID_UPDATE)
+            val existingChannel = notificationManager.getNotificationChannel(CHANNEL_ID_UPDATE)
             
-            if (channel != null) {
+            if (existingChannel != null) {
+                // Lưu lại các settings quan trọng trước khi xóa
+                val importance = existingChannel.importance
+                val bypassDnd = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    existingChannel.canBypassDnd()
+                } else {
+                    false
+                }
+                val vibrationEnabled = existingChannel.shouldVibrate()
+                val lightsEnabled = existingChannel.shouldShowLights()
+                val showBadge = existingChannel.canShowBadge()
+                
+                // Xóa channel cũ
+                notificationManager.deleteNotificationChannel(CHANNEL_ID_UPDATE)
+                
+                // Tạo channel mới với sound mới
                 val soundUri = soundManager.getNotificationSoundUri()
-                // Luôn set sound (không bao giờ null vì default sẽ dùng sound hệ thống)
-                channel.setSound(soundUri, null)
-                notificationManager.createNotificationChannel(channel)
+                val newChannel = NotificationChannel(
+                    CHANNEL_ID_UPDATE,
+                    CHANNEL_NAME_UPDATE,
+                    importance
+                ).apply {
+                    description = "Thông báo về bản cập nhật mới nhất của TXA Hub"
+                    enableVibration(vibrationEnabled)
+                    enableLights(lightsEnabled)
+                    setShowBadge(showBadge)
+                    // Cho phép hiển thị ngay cả khi bật "Không làm phiền" (Android 7.0+)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        setBypassDnd(bypassDnd)
+                    }
+                    // Đặt sound mới
+                    setSound(soundUri, null)
+                }
+                
+                // Tạo channel mới
+                notificationManager.createNotificationChannel(newChannel)
+                
+                android.util.Log.d("NotificationHelper", "Updated notification channel sound: $soundUri")
+            } else {
+                // Nếu channel chưa tồn tại, tạo mới
+                createNotificationChannels()
             }
         }
     }
