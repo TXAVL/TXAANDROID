@@ -356,10 +356,10 @@ class MainActivity : AppCompatActivity() {
             
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                 super.onReceivedError(view, request, error)
-                if (request?.isForMainFrame == true) {
+                if (request != null && request.isForMainFrame) {
                     val errorMessage = error?.description?.toString() ?: "Lỗi không xác định"
-                    // request không null ở đây vì đã check request?.isForMainFrame == true
-                    val requestUrl = request?.url?.toString() ?: "Unknown"
+                    // request không null ở đây vì đã check request != null
+                    val requestUrl = request.url?.toString() ?: "Unknown"
                     logWriter.writeAppLog("WebView Error: $errorMessage\nURL: $requestUrl", "MainActivity", android.util.Log.ERROR)
                     
                     // Hiển thị trang lỗi tùy chỉnh
