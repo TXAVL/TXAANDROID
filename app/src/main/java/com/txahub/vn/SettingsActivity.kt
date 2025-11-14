@@ -889,33 +889,47 @@ class SettingsActivity : AppCompatActivity() {
      * Xử lý file nhạc đã chọn (cho custom sound)
      */
     private fun handleSoundFile(uri: Uri) {
-        // Validate file
-        val (isValid, errorMessage, durationMs) = soundManager.validateSoundFile(uri)
-        
-        if (!isValid) {
+        try {
+            // Validate file
+            val (isValid, errorMessage, durationMs) = soundManager.validateSoundFile(uri)
+            
+            android.util.Log.d("SettingsActivity", "handleSoundFile: isValid=$isValid, durationMs=$durationMs, errorMessage=$errorMessage")
+            
+            if (!isValid) {
+                AlertDialog.Builder(this)
+                    .setTitle("File không hợp lệ")
+                    .setMessage(errorMessage)
+                    .setPositiveButton("OK", null)
+                    .show()
+                return
+            }
+            
+            // Kiểm tra nếu file quá dài, toast thông báo rồi hiển thị dialog cắt nhạc
+            android.util.Log.d("SettingsActivity", "Checking duration: $durationMs > ${NotificationSoundManager.MAX_SOUND_DURATION_MS}")
+            if (durationMs > NotificationSoundManager.MAX_SOUND_DURATION_MS) {
+                val durationSeconds = durationMs / 1000.0
+                val maxDurationSeconds = NotificationSoundManager.MAX_SOUND_DURATION_MS / 1000.0
+                android.util.Log.d("SettingsActivity", "File too long, showing trim dialog: $durationSeconds seconds")
+                Toast.makeText(
+                    this,
+                    "File có thời lượng ${String.format("%.1f", durationSeconds)} giây, vượt quá ${String.format("%.1f", maxDurationSeconds)} giây. Vui lòng cắt nhạc.",
+                    Toast.LENGTH_LONG
+                ).show()
+                selectedSoundUri = uri
+                isPickingForDefault = false
+                showAudioTrimDialog(uri, durationMs)
+            } else {
+                // File hợp lệ, lưu trực tiếp
+                android.util.Log.d("SettingsActivity", "File valid, saving directly")
+                saveSoundFile(uri)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SettingsActivity", "Error in handleSoundFile: ${e.message}", e)
             AlertDialog.Builder(this)
-                .setTitle("File không hợp lệ")
-                .setMessage(errorMessage)
+                .setTitle("Lỗi")
+                .setMessage("Lỗi khi xử lý file: ${e.message}")
                 .setPositiveButton("OK", null)
                 .show()
-            return
-        }
-        
-        // Kiểm tra nếu file quá dài, toast thông báo rồi hiển thị dialog cắt nhạc
-        if (durationMs > NotificationSoundManager.MAX_SOUND_DURATION_MS) {
-            val durationSeconds = durationMs / 1000.0
-            val maxDurationSeconds = NotificationSoundManager.MAX_SOUND_DURATION_MS / 1000.0
-            Toast.makeText(
-                this,
-                "File có thời lượng ${String.format("%.1f", durationSeconds)} giây, vượt quá ${String.format("%.1f", maxDurationSeconds)} giây. Vui lòng cắt nhạc.",
-                Toast.LENGTH_LONG
-            ).show()
-            selectedSoundUri = uri
-            isPickingForDefault = false
-            showAudioTrimDialog(uri, durationMs)
-        } else {
-            // File hợp lệ, lưu trực tiếp
-            saveSoundFile(uri)
         }
     }
     
@@ -923,33 +937,47 @@ class SettingsActivity : AppCompatActivity() {
      * Xử lý file nhạc đã chọn (cho default sound)
      */
     private fun handleSoundFileForDefault(uri: Uri) {
-        // Validate file
-        val (isValid, errorMessage, durationMs) = soundManager.validateSoundFile(uri)
-        
-        if (!isValid) {
+        try {
+            // Validate file
+            val (isValid, errorMessage, durationMs) = soundManager.validateSoundFile(uri)
+            
+            android.util.Log.d("SettingsActivity", "handleSoundFileForDefault: isValid=$isValid, durationMs=$durationMs, errorMessage=$errorMessage")
+            
+            if (!isValid) {
+                AlertDialog.Builder(this)
+                    .setTitle("File không hợp lệ")
+                    .setMessage(errorMessage)
+                    .setPositiveButton("OK", null)
+                    .show()
+                return
+            }
+            
+            // Kiểm tra nếu file quá dài, toast thông báo rồi hiển thị dialog cắt nhạc
+            android.util.Log.d("SettingsActivity", "Checking duration: $durationMs > ${NotificationSoundManager.MAX_SOUND_DURATION_MS}")
+            if (durationMs > NotificationSoundManager.MAX_SOUND_DURATION_MS) {
+                val durationSeconds = durationMs / 1000.0
+                val maxDurationSeconds = NotificationSoundManager.MAX_SOUND_DURATION_MS / 1000.0
+                android.util.Log.d("SettingsActivity", "File too long, showing trim dialog: $durationSeconds seconds")
+                Toast.makeText(
+                    this,
+                    "File có thời lượng ${String.format("%.1f", durationSeconds)} giây, vượt quá ${String.format("%.1f", maxDurationSeconds)} giây. Vui lòng cắt nhạc.",
+                    Toast.LENGTH_LONG
+                ).show()
+                selectedSoundUri = uri
+                isPickingForDefault = true
+                showAudioTrimDialog(uri, durationMs)
+            } else {
+                // File hợp lệ, lưu vào folder default
+                android.util.Log.d("SettingsActivity", "File valid, saving to default folder")
+                saveSoundFileForDefault(uri)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SettingsActivity", "Error in handleSoundFileForDefault: ${e.message}", e)
             AlertDialog.Builder(this)
-                .setTitle("File không hợp lệ")
-                .setMessage(errorMessage)
+                .setTitle("Lỗi")
+                .setMessage("Lỗi khi xử lý file: ${e.message}")
                 .setPositiveButton("OK", null)
                 .show()
-            return
-        }
-        
-        // Kiểm tra nếu file quá dài, toast thông báo rồi hiển thị dialog cắt nhạc
-        if (durationMs > NotificationSoundManager.MAX_SOUND_DURATION_MS) {
-            val durationSeconds = durationMs / 1000.0
-            val maxDurationSeconds = NotificationSoundManager.MAX_SOUND_DURATION_MS / 1000.0
-            Toast.makeText(
-                this,
-                "File có thời lượng ${String.format("%.1f", durationSeconds)} giây, vượt quá ${String.format("%.1f", maxDurationSeconds)} giây. Vui lòng cắt nhạc.",
-                Toast.LENGTH_LONG
-            ).show()
-            selectedSoundUri = uri
-            isPickingForDefault = true
-            showAudioTrimDialog(uri, durationMs)
-        } else {
-            // File hợp lệ, lưu vào folder default
-            saveSoundFileForDefault(uri)
         }
     }
     

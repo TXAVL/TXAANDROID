@@ -24,6 +24,8 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.drawerlayout.widget.DrawerLayout
+import android.webkit.WebResourceError
+import android.webkit.WebResourceResponse
 
 class MainActivity : AppCompatActivity() {
 
@@ -33,6 +35,36 @@ class MainActivity : AppCompatActivity() {
     private lateinit var logWriter: LogWriter
     private var networkMonitor: NetworkMonitor? = null
     private var filePathCallback: android.webkit.ValueCallback<Array<Uri>>? = null
+    
+    // Activity Result Launchers cho permissions
+    private val notificationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        val status = if (isGranted) "granted" else "denied"
+        webView.evaluateJavascript("if(window.TXAApp && window.TXAApp.onPermissionResult) window.TXAApp.onPermissionResult('notification', '$status');", null)
+        if (isGranted) {
+            Toast.makeText(this, "Đã cấp quyền thông báo", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    private val cameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        val status = if (isGranted) "granted" else "denied"
+        webView.evaluateJavascript("if(window.TXAApp && window.TXAApp.onPermissionResult) window.TXAApp.onPermissionResult('camera', '$status');", null)
+    }
+    
+    private val locationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+        val isGranted = permissions.values.any { it }
+        val status = if (isGranted) "granted" else "denied"
+        webView.evaluateJavascript("if(window.TXAApp && window.TXAApp.onPermissionResult) window.TXAApp.onPermissionResult('location', '$status');", null)
+    }
+    
+    private val storagePermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        val status = if (isGranted) "granted" else "denied"
+        webView.evaluateJavascript("if(window.TXAApp && window.TXAApp.onPermissionResult) window.TXAApp.onPermissionResult('storage', '$status');", null)
+    }
+    
+    private val phonePermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+        val status = if (isGranted) "granted" else "denied"
+        webView.evaluateJavascript("if(window.TXAApp && window.TXAApp.onPermissionResult) window.TXAApp.onPermissionResult('phone', '$status');", null)
+    }
     
     // Activity Result Launcher cho file picker của WebView
     private val filePickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -164,6 +196,27 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
             drawerLayout.closeDrawer(Gravity.START)
         }
+        
+        // Menu: Reload
+        val menuReload = findViewById<LinearLayout>(R.id.menuReload)
+        menuReload?.setOnClickListener {
+            webView.reload()
+            drawerLayout.closeDrawer(Gravity.START)
+            Toast.makeText(this, "Đang tải lại trang...", Toast.LENGTH_SHORT).show()
+        }
+        
+        // Menu: Share URL
+        val menuShare = findViewById<LinearLayout>(R.id.menuShare)
+        menuShare?.setOnClickListener {
+            val currentUrl = webView.url ?: WEB_URL
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, currentUrl)
+                putExtra(Intent.EXTRA_SUBJECT, "Chia sẻ từ TXA Hub")
+            }
+            startActivity(Intent.createChooser(shareIntent, "Chia sẻ URL"))
+            drawerLayout.closeDrawer(Gravity.START)
+        }
     }
     
     /**
@@ -275,6 +328,57 @@ class MainActivity : AppCompatActivity() {
                 super.onPageFinished(view, url)
                 // Inject JavaScript nếu cần (ví dụ: unlock features)
                 injectUnlockScript()
+            }
+            
+            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                super.onReceivedError(view, request, error)
+                if (request?.isForMainFrame == true) {
+                    val errorMessage = error?.description?.toString() ?: "Lỗi không xác định"
+                    logWriter.writeAppLog("WebView Error: $errorMessage\nURL: ${request?.url}", "MainActivity", android.util.Log.ERROR)
+                    
+                    // Hiển thị trang lỗi tùy chỉnh
+                    val errorHtml = """
+                        <html>
+                        <head>
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                            <style>
+                                body { 
+                                    font-family: Arial, sans-serif; 
+                                    text-align: center; 
+                                    padding: 50px 20px;
+                                    background: #f5f5f5;
+                                }
+                                .error-container {
+                                    background: white;
+                                    padding: 30px;
+                                    border-radius: 10px;
+                                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                                }
+                                h1 { color: #d32f2f; }
+                                button {
+                                    background: #6200ea;
+                                    color: white;
+                                    border: none;
+                                    padding: 12px 24px;
+                                    border-radius: 5px;
+                                    font-size: 16px;
+                                    cursor: pointer;
+                                    margin-top: 20px;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="error-container">
+                                <h1>⚠️ Không thể tải trang</h1>
+                                <p>$errorMessage</p>
+                                <button onclick="window.location.reload()">Thử lại</button>
+                                <button onclick="window.location.href='$WEB_URL'">Về trang chủ</button>
+                            </div>
+                        </body>
+                        </html>
+                    """.trimIndent()
+                    view?.loadDataWithBaseURL(null, errorHtml, "text/html", "UTF-8", null)
+                }
             }
         }
 
@@ -614,11 +718,7 @@ class MainActivity : AppCompatActivity() {
         fun requestNotificationPermission() {
             runOnUiThread {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    ActivityCompat.requestPermissions(
-                        this@MainActivity,
-                        arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                        1001
-                    )
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 } else {
                     // Android < 13, mở cài đặt thông báo
                     val intent = Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
@@ -646,11 +746,7 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun requestCameraPermission() {
             runOnUiThread {
-                ActivityCompat.requestPermissions(
-                    this@MainActivity,
-                    arrayOf(Manifest.permission.CAMERA),
-                    1002
-                )
+                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
             }
         }
 
@@ -674,11 +770,10 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun requestLocationPermission() {
             runOnUiThread {
-                ActivityCompat.requestPermissions(
-                    this@MainActivity,
-                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
-                    1003
-                )
+                locationPermissionLauncher.launch(arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ))
             }
         }
         
@@ -707,12 +802,9 @@ class MainActivity : AppCompatActivity() {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     // Android 13+ sử dụng media picker, không cần quyền
                     showToast("Android 13+ tự động cấp quyền truy cập media")
+                    webView.evaluateJavascript("if(window.TXAApp && window.TXAApp.onPermissionResult) window.TXAApp.onPermissionResult('storage', 'granted');", null)
                 } else {
-                    ActivityCompat.requestPermissions(
-                        this@MainActivity,
-                        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
-                        1004
-                    )
+                    storagePermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
                 }
             }
         }
@@ -734,11 +826,7 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun requestPhonePermission() {
             runOnUiThread {
-                ActivityCompat.requestPermissions(
-                    this@MainActivity,
-                    arrayOf(Manifest.permission.READ_PHONE_STATE),
-                    1005
-                )
+                phonePermissionLauncher.launch(Manifest.permission.READ_PHONE_STATE)
             }
         }
 

@@ -223,72 +223,108 @@ class NotificationHelper(private val context: Context) {
             // Update UPDATE channel
             val existingUpdateChannel = notificationManager.getNotificationChannel(CHANNEL_ID_UPDATE)
             if (existingUpdateChannel != null) {
-                // Lưu lại các settings quan trọng trước khi xóa
-                val importance = existingUpdateChannel.importance
-                val bypassDnd = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    existingUpdateChannel.canBypassDnd()
-                } else {
-                    false
-                }
-                val vibrationEnabled = existingUpdateChannel.shouldVibrate()
-                val lightsEnabled = existingUpdateChannel.shouldShowLights()
-                val showBadge = existingUpdateChannel.canShowBadge()
-                
-                // Xóa channel cũ
-                notificationManager.deleteNotificationChannel(CHANNEL_ID_UPDATE)
-                
-                // Tạo channel mới với sound mới
-                val newUpdateChannel = NotificationChannel(
-                    CHANNEL_ID_UPDATE,
-                    CHANNEL_NAME_UPDATE,
-                    importance
-                ).apply {
-                    description = "Thông báo về bản cập nhật mới nhất của TXA Hub"
-                    enableVibration(vibrationEnabled)
-                    enableLights(lightsEnabled)
-                    setShowBadge(showBadge)
-                    // Cho phép hiển thị ngay cả khi bật "Không làm phiền" (Android 7.0+)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                        setBypassDnd(bypassDnd)
+                try {
+                    // Lưu lại các settings quan trọng trước khi xóa
+                    val importance = existingUpdateChannel.importance
+                    val bypassDnd = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        existingUpdateChannel.canBypassDnd()
+                    } else {
+                        false
                     }
-                    // Đặt sound mới
-                    setSound(soundUri, null)
+                    val vibrationEnabled = existingUpdateChannel.shouldVibrate()
+                    val lightsEnabled = existingUpdateChannel.shouldShowLights()
+                    val showBadge = existingUpdateChannel.canShowBadge()
+                    
+                    // Xóa channel cũ - có thể fail nếu có notification đang dùng
+                    var canDeleteUpdateChannel = true
+                    try {
+                        notificationManager.deleteNotificationChannel(CHANNEL_ID_UPDATE)
+                    } catch (e: SecurityException) {
+                        // Không thể xóa channel vì đang được sử dụng
+                        // Sound sẽ được set khi tạo notification mới
+                        android.util.Log.w("NotificationHelper", "Cannot delete UPDATE channel (in use): ${e.message}")
+                        canDeleteUpdateChannel = false
+                    }
+                    
+                    // Nếu không thể xóa channel, bỏ qua việc cập nhật channel này
+                    if (!canDeleteUpdateChannel) {
+                        android.util.Log.d("NotificationHelper", "Skipping UPDATE channel update (channel in use)")
+                    } else {
+                        // Tạo channel mới với sound mới
+                        val newUpdateChannel = NotificationChannel(
+                            CHANNEL_ID_UPDATE,
+                            CHANNEL_NAME_UPDATE,
+                            importance
+                        ).apply {
+                            description = "Thông báo về bản cập nhật mới nhất của TXA Hub"
+                            enableVibration(vibrationEnabled)
+                            enableLights(lightsEnabled)
+                            setShowBadge(showBadge)
+                            // Cho phép hiển thị ngay cả khi bật "Không làm phiền" (Android 7.0+)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                                setBypassDnd(bypassDnd)
+                            }
+                            // Đặt sound mới
+                            setSound(soundUri, null)
+                        }
+                        
+                        // Tạo channel mới
+                        notificationManager.createNotificationChannel(newUpdateChannel)
+                        android.util.Log.d("NotificationHelper", "Updated UPDATE channel sound: $soundUri")
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("NotificationHelper", "Error updating UPDATE channel: ${e.message}", e)
+                    // Không crash, chỉ log lỗi
                 }
-                
-                // Tạo channel mới
-                notificationManager.createNotificationChannel(newUpdateChannel)
-                android.util.Log.d("NotificationHelper", "Updated UPDATE channel sound: $soundUri")
             }
             
             // Update BACKGROUND channel
             val existingBackgroundChannel = notificationManager.getNotificationChannel(CHANNEL_ID_BACKGROUND)
             if (existingBackgroundChannel != null) {
-                // Lưu lại các settings quan trọng trước khi xóa
-                val importance = existingBackgroundChannel.importance
-                val vibrationEnabled = existingBackgroundChannel.shouldVibrate()
-                val lightsEnabled = existingBackgroundChannel.shouldShowLights()
-                val showBadge = existingBackgroundChannel.canShowBadge()
-                
-                // Xóa channel cũ
-                notificationManager.deleteNotificationChannel(CHANNEL_ID_BACKGROUND)
-                
-                // Tạo channel mới với sound mới
-                val newBackgroundChannel = NotificationChannel(
-                    CHANNEL_ID_BACKGROUND,
-                    CHANNEL_NAME_BACKGROUND,
-                    importance
-                ).apply {
-                    description = "Thông báo ứng dụng đang chạy nền, cái này khuyến nghị không nên tắt"
-                    enableVibration(vibrationEnabled)
-                    enableLights(lightsEnabled)
-                    setShowBadge(showBadge)
-                    // Đặt sound mới
-                    setSound(soundUri, null)
+                try {
+                    // Lưu lại các settings quan trọng trước khi xóa
+                    val importance = existingBackgroundChannel.importance
+                    val vibrationEnabled = existingBackgroundChannel.shouldVibrate()
+                    val lightsEnabled = existingBackgroundChannel.shouldShowLights()
+                    val showBadge = existingBackgroundChannel.canShowBadge()
+                    
+                    // Xóa channel cũ - có thể fail nếu service đang chạy
+                    var canDeleteBackgroundChannel = true
+                    try {
+                        notificationManager.deleteNotificationChannel(CHANNEL_ID_BACKGROUND)
+                    } catch (e: SecurityException) {
+                        // Không thể xóa channel vì service đang chạy
+                        // Sound sẽ được set khi tạo notification mới
+                        android.util.Log.w("NotificationHelper", "Cannot delete BACKGROUND channel (service running): ${e.message}")
+                        canDeleteBackgroundChannel = false
+                    }
+                    
+                    // Nếu không thể xóa channel, bỏ qua việc cập nhật channel này
+                    if (!canDeleteBackgroundChannel) {
+                        android.util.Log.d("NotificationHelper", "Skipping BACKGROUND channel update (channel in use)")
+                    } else {
+                        // Tạo channel mới với sound mới
+                        val newBackgroundChannel = NotificationChannel(
+                            CHANNEL_ID_BACKGROUND,
+                            CHANNEL_NAME_BACKGROUND,
+                            importance
+                        ).apply {
+                            description = "Thông báo ứng dụng đang chạy nền, cái này khuyến nghị không nên tắt"
+                            enableVibration(vibrationEnabled)
+                            enableLights(lightsEnabled)
+                            setShowBadge(showBadge)
+                            // Đặt sound mới
+                            setSound(soundUri, null)
+                        }
+                        
+                        // Tạo channel mới
+                        notificationManager.createNotificationChannel(newBackgroundChannel)
+                        android.util.Log.d("NotificationHelper", "Updated BACKGROUND channel sound: $soundUri")
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("NotificationHelper", "Error updating BACKGROUND channel: ${e.message}", e)
+                    // Không crash, chỉ log lỗi
                 }
-                
-                // Tạo channel mới
-                notificationManager.createNotificationChannel(newBackgroundChannel)
-                android.util.Log.d("NotificationHelper", "Updated BACKGROUND channel sound: $soundUri")
             }
             
             // Nếu cả 2 channels đều chưa tồn tại, tạo mới
